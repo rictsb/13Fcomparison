@@ -25,4 +25,7 @@ services:
       - key: NODE_VERSION
         value: 20
       - key: SEC_USER_AGENT
-        sync: false  # set this manually in the Render dashboard
+        sync: false  # set this manually in the Render dashboard (e.g. "Richard you@email.com")
+      - key: FINNHUB_API_KEY
+        sync: false  # set this manually — free key from finnhub.io. Powers the
+                     # "Δ since report" column's live-price refresh.

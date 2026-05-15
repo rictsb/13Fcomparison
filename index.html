@@ -517,6 +517,10 @@ const STATE = {
   fundViewMode: 'all', // all | top10 | byCategory
   // Per-table sort state for the compare view: { common: {col, dir}, divergent: {...} }
   compareSort: { common: null, divergent: null },
+  // Current prices: { TICKER: { price, asOf } } — refreshed via /api/prices
+  currentPrices: {},
+  pricesFetching: false,
+  pricesError: null,
 };
 
 function parseRoute(hash) {
@@ -925,13 +929,15 @@ function renderFundView(root, fundName) {
 
   // Header card
   const eq = fund.equityPct || 0, ca = fund.callsPct || 0, pu = fund.putsPct || 0;
+  const period = fund.periodOfReport || STATE.data.asOf;
   const header = document.createElement('div');
   header.className = 'card';
+  header.id = 'fundHeader';
   header.innerHTML = `
     <div class="card-header">
       <div>
         <h2>${fund.name} ${fund.isReference ? '<span class="badge sa">REF</span>' : ''}</h2>
-        <div style="color:var(--text-dim); font-size: 11px; margin-top: 2px">${fund.manager} · Filed ${fund.filingDate} · Period ${fund.periodOfReport || STATE.data.asOf} · CIK ${fund.cik || '—'}${fund.sourceTag === 'edgar' ? ' · <span class="badge new">EDGAR</span>' : ''}</div>
+        <div style="color:var(--text-dim); font-size: 11px; margin-top: 2px">${fund.manager} · Filed ${fund.filingDate} · Period ${period} · CIK ${fund.cik || '—'}${fund.sourceTag === 'edgar' ? ' · <span class="badge new">EDGAR</span>' : ''}</div>
       </div>
       <div class="right"><a href="#/dashboard">← Back</a></div>
     </div>
@@ -939,6 +945,7 @@ function renderFundView(root, fundName) {
       <div class="stat"><div class="label">13F Total</div><div class="value">${fmtDollarsB(fund.totalBn)}</div></div>
       <div class="stat"><div class="label"># Issuers</div><div class="value">${fund.numIssuers}</div></div>
       <div class="stat"><div class="label">Top 10 conc.</div><div class="value small">${fmtPct(fund.top10Concentration, 0)}</div></div>
+      <div class="stat" id="growthStat"><div class="label">Equity Δ since ${period}</div><div class="value small" style="color:var(--text-faint)">—</div><div class="sub" style="font-size:10.5px">loading prices…</div></div>
       <div class="stat" style="flex:1; min-width: 240px">
         <div class="label">Equity / Calls / Puts</div>
         <div class="stacked-bar" style="margin-top: 4px; height: 18px">
@@ -978,6 +985,80 @@ function renderFundView(root, fundName) {
     };
   });
   drawFundTable(tableCard.querySelector('#fundTable'), fund);
+
+  // Kick off price fetch — re-render when it returns
+  loadCurrentPricesForFund(fund).then(() => {
+    if (STATE.route.name !== 'fund' || STATE.route.arg !== fund.shortLabel) return;
+    drawFundTable(tableCard.querySelector('#fundTable'), fund);
+    updateGrowthStat(fund);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Price helpers
+// ---------------------------------------------------------------------------
+async function loadCurrentPricesForFund(fund) {
+  const tickers = [...new Set(fund.holdings.map(h => h.ticker).filter(t => /^[A-Z][A-Z0-9.\-]{0,6}$/.test(t)))];
+  if (!tickers.length) return;
+  STATE.pricesFetching = true;
+  STATE.pricesError = null;
+  try {
+    const r = await fetch('/api/prices?tickers=' + encodeURIComponent(tickers.join(',')));
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    Object.assign(STATE.currentPrices, data.prices || {});
+  } catch (e) {
+    STATE.pricesError = e.message;
+  } finally {
+    STATE.pricesFetching = false;
+  }
+}
+
+function pctSinceReport(fund, h) {
+  const period = fund.periodOfReport || STATE.data.asOf;
+  const since = STATE.data.historicalPrices?.[period]?.[h.ticker]?.price;
+  const now = STATE.currentPrices?.[h.ticker]?.price;
+  if (!since || !now) return null;
+  return (now - since) / since;
+}
+
+// Fund-level aggregate — equity-weighted average price change.
+// Options notional is excluded because option P&L isn't linear in spot price.
+function fundEquityGrowth(fund) {
+  let wSum = 0, weighted = 0;
+  for (const h of fund.holdings) {
+    const pct = pctSinceReport(fund, h);
+    if (pct == null || !h.equity) continue;
+    wSum += h.equity;
+    weighted += h.equity * pct;
+  }
+  return wSum > 0 ? { pct: weighted / wSum, coverage: wSum } : null;
+}
+
+function updateGrowthStat(fund) {
+  const stat = document.getElementById('growthStat');
+  if (!stat) return;
+  const period = fund.periodOfReport || STATE.data.asOf;
+  const coverageEquity = fund.holdings.reduce((s, h) => s + (h.equity || 0), 0);
+  const growth = fundEquityGrowth(fund);
+  if (STATE.pricesError) {
+    stat.querySelector('.value').textContent = '—';
+    stat.querySelector('.sub').textContent = 'price fetch failed';
+    stat.querySelector('.sub').style.color = 'var(--puts)';
+    return;
+  }
+  if (!growth) {
+    stat.querySelector('.value').textContent = '—';
+    stat.querySelector('.sub').textContent = 'no baked since-prices · run scripts/refresh_prices.mjs';
+    return;
+  }
+  const v = stat.querySelector('.value');
+  const sign = growth.pct >= 0 ? '+' : '';
+  v.textContent = `${sign}${(growth.pct * 100).toFixed(1)}%`;
+  v.style.color = growth.pct >= 0 ? 'var(--calls)' : 'var(--puts)';
+  const cov = coverageEquity > 0 ? growth.coverage / coverageEquity : 0;
+  stat.querySelector('.sub').textContent = `equity-weighted · covers ${(cov * 100).toFixed(0)}% of $${fund.holdings.reduce((s,h)=>s+(h.equity||0),0).toFixed(0)}M`;
+  stat.querySelector('.sub').style.color = 'var(--text-dim)';
 }
 
 function drawFundTable(container, fund) {
@@ -1000,24 +1081,45 @@ function drawFundTable(container, fund) {
           <span class="cat-chip"><span class="swatch" style="background:${catColor(cat)}"></span>${cat}</span>
           <span class="sub">${items.length} positions · ${fmtPct(total)} of 13F</span>
         </div>
-        ${holdingsTableHtml(items)}
+        ${holdingsTableHtml(items, fund)}
       </div>`;
     }
     container.innerHTML = html;
   } else {
-    container.innerHTML = holdingsTableHtml(holdings);
+    container.innerHTML = holdingsTableHtml(holdings, fund);
   }
 
   container.querySelectorAll('tbody tr').forEach(tr =>
     tr.addEventListener('click', () => openTickerDrawer(tr.dataset.ticker)));
 }
 
-function holdingsTableHtml(rows) {
+function holdingsTableHtml(rows, fund) {
+  // Resolve fund (drawFundTable passes it; if not provided, find via shortLabel route)
+  if (!fund) fund = findFund(STATE.route.arg);
+  const period = fund?.periodOfReport || STATE.data.asOf;
+  const renderGrowth = (h) => {
+    const pct = pctSinceReport(fund, h);
+    if (pct == null) {
+      if (STATE.pricesFetching) return '<span style="color:var(--text-faint)">…</span>';
+      return '<span style="color:var(--text-faint)" title="No baked since-price. Run scripts/refresh_prices.mjs">—</span>';
+    }
+    const sign = pct >= 0 ? '+' : '';
+    const color = pct >= 0 ? 'var(--calls)' : 'var(--puts)';
+    const since = STATE.data.historicalPrices?.[period]?.[h.ticker];
+    const now = STATE.currentPrices?.[h.ticker];
+    const tip = since && now
+      ? `${since.asOf}: $${since.price.toFixed(2)} → ${now.asOf}: $${now.price.toFixed(2)}`
+      : '';
+    return `<span style="color:${color}" title="${escapeAttr(tip)}">${sign}${(pct * 100).toFixed(1)}%</span>`;
+  };
+
   return `<table>
     <thead><tr>
       <th>#</th><th>Ticker</th><th>Issuer</th><th>Category</th>
       <th class="num">Equity</th><th class="num">Calls</th><th class="num">Puts</th>
-      <th class="num">Total</th><th class="num">% of 13F</th><th style="width:80px">Allocation</th>
+      <th class="num">Total</th><th class="num">% of 13F</th>
+      <th class="num" title="Underlying price change from ${period} to today">Δ since ${period.slice(5)}</th>
+      <th style="width:80px">Allocation</th>
     </tr></thead>
     <tbody>
     ${rows.map((h, i) => `
@@ -1031,6 +1133,7 @@ function holdingsTableHtml(rows) {
         <td class="num" style="${h.puts>0?'color:var(--puts)':''}">${fmtDollarsM(h.puts)}</td>
         <td class="num">${fmtDollarsM(h.total)}</td>
         <td class="num">${fmtPct(h.pct)}</td>
+        <td class="num">${renderGrowth(h)}</td>
         <td><div class="bar-thin" style="width:60px"><div class="fill" style="width:${Math.min(100, h.pct * 100 / 0.22 * 100).toFixed(0)}%; background:${catColor(h.category)}"></div></div></td>
       </tr>`).join('')}
     </tbody></table>`;

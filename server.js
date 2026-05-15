@@ -8,6 +8,7 @@
 
 import express from 'express';
 import edgarHandler from './api/edgar.js';
+import pricesHandler from './api/prices.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -15,8 +16,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// API
+// APIs
 app.get('/api/edgar', edgarHandler);
+app.get('/api/prices', pricesHandler);
 
 // Static files (index.html, data.json, AI_Hedge_Funds_13F_Tracker.xlsx)
 app.use(express.static(__dirname, {

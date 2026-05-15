@@ -44,14 +44,32 @@ npm run refresh                              # refreshes the 3 known-fresh funds
 node scripts/refresh_funds.mjs Coatue        # or refresh specific funds by shortLabel
 ```
 
+To bake historical close prices for the "Δ since reporting date" column:
+
+```sh
+npm run refresh:prices                       # fetches Yahoo close prices for
+                                             # every ticker at every fund's
+                                             # period-of-report date, writes
+                                             # them into data.json under
+                                             # `historicalPrices` and re-bakes
+                                             # the inline data into index.html.
+```
+
+The live "now" prices come from Finnhub via `/api/prices`; the historical
+"since" prices are baked at this step. Run after each `npm run refresh` to
+fill in prices for any newly-imported holdings.
+
 ## Deploy to Render (recommended)
 
 1. Push this repo to GitHub.
 2. In Render: **New → Blueprint** → connect this repo → Apply.
    `render.yaml` configures a free-tier Node Web Service running `npm start`.
-3. After the first deploy, go to the service's **Environment** tab and set
-   `SEC_USER_AGENT` to your own `Name email@domain.com`. SEC requires this
-   header on every request to identify the caller.
+3. After the first deploy, go to the service's **Environment** tab and set:
+   - `SEC_USER_AGENT` to your own `Name email@domain.com` — SEC requires
+     this header on every request.
+   - `FINNHUB_API_KEY` to your free Finnhub token (finnhub.io). Powers the
+     "Δ since report" column's live current-price fetch. Without it that
+     column will show "—" but the rest of the dashboard works.
 
 That's it. Future pushes to `main` auto-deploy.
 
