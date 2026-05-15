@@ -1,0 +1,28 @@
+# Render Blueprint — one-click deploy.
+#
+# To use:
+#   1. Push this repo to GitHub.
+#   2. In Render: New → Blueprint → connect this repo → Apply.
+#   3. After the first deploy, open the service's Environment tab and set
+#      SEC_USER_AGENT to your own "Name email@domain.com" (SEC requires it).
+#
+# The "starter" plan is free and adequate; it spins down after ~15 min of
+# inactivity (~3-5s cold start when someone visits). Bump to "standard" if
+# you want it always warm.
+
+services:
+  - type: web
+    name: 13f-tracker
+    runtime: node
+    plan: starter
+    region: oregon
+    branch: main
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: SEC_USER_AGENT
+        sync: false  # set this manually in the Render dashboard

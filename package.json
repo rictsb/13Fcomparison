@@ -1,0 +1,21 @@
+{
+  "name": "ai-hedge-fund-13f-tracker",
+  "version": "0.1.0",
+  "description": "Interactive dashboard for AI-aligned hedge fund 13F holdings.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "build:data": "python3 scripts/build_data.py AI_Hedge_Funds_13F_Tracker.xlsx data.json",
+    "refresh": "node scripts/refresh_funds.mjs",
+    "dev": "node server.js",
+    "vercel-dev": "vercel dev",
+    "vercel-deploy": "vercel deploy --prod"
+  },
+  "dependencies": {
+    "express": "^4.21.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

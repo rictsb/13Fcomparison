@@ -1,0 +1,1745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>13F · AI Hedge Fund Tracker</title>
+<style>
+:root {
+  --bg: #0c0f14;
+  --bg-elev: #131720;
+  --bg-elev2: #1a1f2b;
+  --bg-hover: #20263a;
+  --border: #232a3a;
+  --border-strong: #2f3850;
+  --text: #e6e8ee;
+  --text-dim: #8a93a6;
+  --text-faint: #5a637a;
+  --accent: #66b3ff;
+  --accent-soft: rgba(102,179,255,0.12);
+  --calls: #4ade80;  /* green */
+  --puts: #f87171;   /* red */
+  --sa: #fbbf24;     /* yellow — Situational Awareness reference */
+  --row-hover: #1c2233;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--font-sans); font-size: 13px; line-height: 1.45; }
+body { min-height: 100vh; }
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+button { font-family: inherit; }
+
+.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; }
+
+/* ---------- Layout ---------- */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 18px;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.brand {
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  font-size: 13px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.brand .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; }
+.brand .sub { color: var(--text-dim); font-weight: 400; }
+
+nav.tabs { display: flex; gap: 4px; margin-left: 8px; }
+nav.tabs a {
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--text-dim);
+  border-radius: 4px;
+  cursor: pointer;
+  text-decoration: none;
+}
+nav.tabs a:hover { background: var(--bg-hover); color: var(--text); }
+nav.tabs a.active { color: var(--text); background: var(--bg-elev2); }
+
+.search {
+  margin-left: auto;
+  position: relative;
+}
+.search input {
+  width: 260px;
+  background: var(--bg-elev2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 6px 10px;
+  font-family: inherit;
+  font-size: 12px;
+  outline: none;
+}
+.search input:focus { border-color: var(--accent); }
+.search-results {
+  position: absolute;
+  top: 32px;
+  right: 0;
+  width: 320px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  padding: 6px 0;
+  max-height: 360px;
+  overflow-y: auto;
+  display: none;
+  z-index: 100;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.search-results.show { display: block; }
+.search-results .group { font-size: 10px; text-transform: uppercase; color: var(--text-faint); padding: 6px 12px 2px; letter-spacing: 0.5px; }
+.search-results .item { padding: 5px 12px; cursor: pointer; font-size: 12px; display: flex; gap: 8px; align-items: center; }
+.search-results .item:hover { background: var(--bg-hover); }
+.search-results .item .t { font-family: var(--font-mono); color: var(--accent); width: 70px; }
+.search-results .item .name { color: var(--text-dim); font-size: 11px; }
+
+.btn {
+  background: var(--bg-elev2);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.btn:hover { background: var(--bg-hover); border-color: var(--accent); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn.primary { background: var(--accent); color: #0c0f14; border-color: var(--accent); font-weight: 600; }
+.btn.primary:hover { filter: brightness(1.1); }
+
+.main {
+  padding: 18px 24px 80px;
+  max-width: 1500px;
+  margin: 0 auto;
+}
+
+h1, h2, h3, h4 { font-weight: 600; margin: 0; color: var(--text); }
+h1 { font-size: 16px; }
+h2 { font-size: 14px; margin: 0 0 10px; }
+h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-dim); margin: 0 0 8px; }
+
+/* ---------- Cards ---------- */
+.card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+.card .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.card .card-header .right { display: flex; gap: 8px; align-items: center; color: var(--text-faint); font-size: 11px; }
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 1100px) { .grid-2 { grid-template-columns: 1fr; } }
+
+/* ---------- Tables ---------- */
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+thead th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elev);
+  position: sticky;
+  top: 0;
+}
+thead th.num { text-align: right; }
+thead th.sortable { cursor: pointer; user-select: none; }
+thead th.sortable:hover { color: var(--text); }
+thead th .sort-ind {
+  display: inline-block;
+  margin-left: 4px;
+  color: var(--accent);
+  font-size: 10px;
+  width: 8px;
+}
+thead th.sort-active { color: var(--text); }
+tbody td { padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+tbody tr:hover { background: var(--row-hover); cursor: pointer; }
+tbody tr.fund-row { cursor: default; }
+tbody td.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; }
+
+.ticker {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+}
+.ticker:hover { text-decoration: underline; }
+
+/* ---------- Category chips ---------- */
+.cat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-elev2);
+  color: var(--text-dim);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+.cat-chip .swatch { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.cat-chip.active { color: var(--text); border-color: var(--accent); background: var(--accent-soft); }
+
+.category-filter { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+
+/* ---------- Badges ---------- */
+.badge {
+  display: inline-block;
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 4px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.badge.calls { background: rgba(74,222,128,0.18); color: var(--calls); }
+.badge.puts  { background: rgba(248,113,113,0.18); color: var(--puts); }
+.badge.new   { background: rgba(102,179,255,0.18); color: var(--accent); }
+.badge.sa    { background: rgba(251,191,36,0.18); color: var(--sa); }
+.badge.high  { background: rgba(248,113,113,0.22); color: var(--puts); }
+
+/* ---------- Stacked bars ---------- */
+.stacked-bar {
+  display: flex;
+  height: 14px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--bg-elev2);
+  min-width: 120px;
+}
+.stacked-bar .seg { height: 100%; }
+.stacked-bar .seg.eq    { background: #2563eb; }
+.stacked-bar .seg.calls { background: var(--calls); }
+.stacked-bar .seg.puts  { background: var(--puts); }
+
+.bar-thin {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--bg-elev2);
+  overflow: hidden;
+  display: inline-block;
+  vertical-align: middle;
+}
+.bar-thin .fill { height: 100%; background: var(--accent); }
+
+/* ---------- Stats row ---------- */
+.stat-row { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 12px; }
+.stat { min-width: 110px; }
+.stat .label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-faint); margin-bottom: 2px; }
+.stat .value { font-family: var(--font-mono); font-size: 18px; font-weight: 600; color: var(--text); }
+.stat .value.small { font-size: 14px; }
+.stat .sub { font-size: 11px; color: var(--text-dim); margin-top: 1px; }
+
+/* ---------- Drawer ---------- */
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: none;
+  z-index: 200;
+}
+.drawer-overlay.show { display: block; }
+.drawer {
+  position: fixed;
+  top: 0; right: -560px;
+  width: 540px; max-width: 90vw;
+  height: 100vh;
+  background: var(--bg-elev);
+  border-left: 1px solid var(--border-strong);
+  transition: right 0.18s ease;
+  z-index: 201;
+  display: flex;
+  flex-direction: column;
+}
+.drawer.show { right: 0; }
+.drawer-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+.drawer-close {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 22px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+.drawer-close:hover { color: var(--text); }
+
+/* ---------- Fund list ---------- */
+.fund-card-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 12px; }
+.fund-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.fund-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+.fund-card.sa { border-left: 3px solid var(--sa); }
+.fund-card h4 { font-size: 13px; margin-bottom: 2px; }
+.fund-card .manager { font-size: 11px; color: var(--text-dim); margin-bottom: 8px; }
+.fund-card .meta { display: flex; gap: 14px; font-size: 11px; color: var(--text-dim); margin-bottom: 8px; }
+.fund-card .meta .v { color: var(--text); font-family: var(--font-mono); }
+
+/* ---------- Section gaps ---------- */
+.section { margin-bottom: 22px; }
+.section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-dim); margin: 0 0 8px; display: flex; gap: 10px; align-items: baseline; }
+.section-title .sub { font-size: 11px; color: var(--text-faint); text-transform: none; letter-spacing: 0; }
+
+/* ---------- Compare ---------- */
+.fund-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.fund-picker label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.fund-picker label:hover { border-color: var(--accent); }
+.fund-picker input[type=checkbox] { accent-color: var(--accent); }
+.fund-picker label.checked { background: var(--accent-soft); border-color: var(--accent); }
+
+.compare-grid { display: grid; gap: 16px; }
+.compare-bars { display: grid; gap: 10px; }
+.compare-bar-row { display: grid; grid-template-columns: 160px 1fr; align-items: center; gap: 12px; }
+.compare-bar-row .label { font-size: 12px; color: var(--text-dim); }
+.compare-bar {
+  height: 20px;
+  background: var(--bg-elev2);
+  border-radius: 3px;
+  overflow: hidden;
+  display: flex;
+}
+.compare-bar .seg { height: 100%; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 11px; color: var(--text-dim); }
+.legend .swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; margin-right: 5px; vertical-align: middle; }
+
+/* ---------- View toggle ---------- */
+.toggle-group { display: inline-flex; background: var(--bg-elev2); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+.toggle-group button {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  padding: 4px 12px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.toggle-group button.active { background: var(--accent-soft); color: var(--text); }
+.toggle-group button:hover:not(.active) { color: var(--text); }
+
+/* ---------- Conviction map ---------- */
+.conviction-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; }
+@media (max-width: 1200px) { .conviction-wrap { grid-template-columns: 1fr; } }
+.conviction-chart {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  position: relative;
+}
+.conviction-chart svg { display: block; width: 100%; height: auto; }
+.conviction-chart .axis-label { fill: var(--text-faint); font-size: 10px; font-family: var(--font-sans); text-transform: uppercase; letter-spacing: 0.5px; }
+.conviction-chart .tick-label { fill: var(--text-dim); font-size: 10px; font-family: var(--font-mono); }
+.conviction-chart .grid-line { stroke: var(--border); stroke-dasharray: 2 3; stroke-width: 1; }
+.conviction-chart .quadrant-line { stroke: var(--border-strong); stroke-width: 1; stroke-dasharray: 4 4; }
+.conviction-chart .quadrant-label { fill: var(--text-faint); font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; font-family: var(--font-sans); }
+.conviction-chart .dot { cursor: pointer; transition: stroke-width 0.1s, filter 0.1s; }
+.conviction-chart .dot:hover { stroke: var(--text); stroke-width: 1.5; filter: brightness(1.3); }
+.conviction-chart .dot-label { fill: var(--text); font-size: 9px; font-family: var(--font-mono); pointer-events: none; }
+.conviction-tooltip {
+  position: absolute;
+  background: var(--bg-elev2);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-size: 11px;
+  pointer-events: none;
+  display: none;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  z-index: 10;
+  min-width: 200px;
+}
+.conviction-tooltip .t { font-family: var(--font-mono); font-weight: 600; color: var(--accent); font-size: 13px; }
+.conviction-tooltip .row { display: flex; justify-content: space-between; gap: 12px; margin-top: 2px; color: var(--text-dim); }
+.conviction-tooltip .row .v { color: var(--text); font-family: var(--font-mono); }
+
+.conviction-side { display: flex; flex-direction: column; gap: 16px; }
+.conviction-list { padding: 0; margin: 0; list-style: none; }
+.conviction-list li {
+  display: grid;
+  grid-template-columns: 70px 1fr auto;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  cursor: pointer;
+  align-items: center;
+}
+.conviction-list li:hover { background: var(--row-hover); }
+.conviction-list li:last-child { border-bottom: none; }
+.conviction-list .lc-fund { color: var(--text-dim); font-size: 11px; }
+.conviction-list .lc-pct { font-family: var(--font-mono); color: var(--text); text-align: right; font-weight: 600; }
+.conviction-list .lc-meta { font-size: 10px; color: var(--text-faint); }
+
+/* ---------- Footer ---------- */
+.footer { padding: 16px 24px; max-width: 1500px; margin: 0 auto; font-size: 10.5px; color: var(--text-faint); border-top: 1px solid var(--border); }
+.footer ul { padding-left: 18px; margin: 6px 0 0; }
+.footer li { margin-bottom: 3px; }
+
+/* ---------- Empty state ---------- */
+.empty {
+  padding: 32px 24px;
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+/* ---------- Edgar status ---------- */
+.edgar-status {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  font-size: 12px;
+}
+.edgar-status .row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed var(--border); }
+.edgar-status .row:last-child { border-bottom: none; }
+.edgar-status .ok { color: var(--calls); }
+.edgar-status .err { color: var(--puts); }
+
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><span class="dot"></span> 13F · AI Hedge Fund Tracker <span class="sub" id="asOfLabel"></span></div>
+  <nav class="tabs">
+    <a data-route="#/dashboard">Dashboard</a>
+    <a data-route="#/conviction">Conviction</a>
+    <a data-route="#/funds">Funds</a>
+    <a data-route="#/compare">Compare</a>
+  </nav>
+  <div class="search">
+    <input id="searchInput" type="text" placeholder="Search ticker or fund…" autocomplete="off" />
+    <div class="search-results" id="searchResults"></div>
+  </div>
+  <button class="btn primary" id="updateBtn" title="Fetch latest 13Fs from SEC EDGAR">Update from EDGAR</button>
+</div>
+
+<div class="main" id="main"></div>
+
+<div class="footer">
+  <strong>Caveats:</strong>
+  <ul id="caveats"></ul>
+</div>
+
+<!-- Inline data — baked from data.json so the page works via file:// too.
+     The Vercel build also serves /data.json which we fall back to if the inline
+     copy is missing or stale. -->
+<script id="bakedData" type="application/json">{"asOf":"2025-12-31","builtAt":"2026-05-15T18:21:59.627122Z","source":"SEC EDGAR 13F filings, period Dec 31 2025","categories":["GPU & AI compute","Foundry & semis","Semis equipment","Memory & storage","Optics & networking","AI cloud & neoclouds","BTC miners pivoting to AI","Power & energy (data center)","AI software / hyperscaler","Other"],"categoryColors":{"GPU & AI compute":"#76b900","Foundry & semis":"#5b8def","Semis equipment":"#9b7cf2","Memory & storage":"#f4a261","Optics & networking":"#06d6a0","AI cloud & neoclouds":"#48cae4","BTC miners pivoting to AI":"#f4a300","Power & energy (data center)":"#e76f51","AI software / hyperscaler":"#bdb2ff","Other":"#5a5a5a"},"funds":[{"name":"Situational Awareness LP","shortLabel":"Situational Awareness","manager":"Leopold Aschenbrenner","cik":"0002045724","filesOwn13F":true,"totalBn":5.516758345,"numIssuers":25,"equityPct":0.709410695602981,"callsPct":0.288974225496912,"putsPct":0.00161507890010723,"optionsHeavy":true,"top10Concentration":0.896937481679742,"filingDate":"2026-02-11","thesis":"Reference fund — pure-play AI infra bottlenecks: power, neoclouds, NAND/HBM memory, optics, miners pivoting to AI hosting","rank":null,"isReference":true,"holdings":[{"rank":1,"ticker":"CRWV","issuer":"Coreweave Inc","equity":436.735927,"calls":774.426345,"puts":0,"total":1211.162272,"pct":0.219542382728747,"category":"AI cloud & neoclouds","tickerInSheet":true},{"rank":2,"ticker":"BE","issuer":"Bloom Energy Corp","equity":875.505552,"calls":35.494565,"puts":0,"total":911.000117,"pct":0.165133228615255,"category":"Power & energy (data center)","tickerInSheet":true},{"rank":3,"ticker":"INTC","issuer":"Intel Corp","equity":0.000037,"calls":746.76006,"puts":0,"total":746.760097,"pct":0.135362118530497,"category":"Foundry & semis","tickerInSheet":true},{"rank":4,"ticker":"LITE","issuer":"Lumentum Hldgs Inc","equity":478.577256,"calls":0,"puts":0,"total":478.577256,"pct":0.0867497225855014,"category":"Optics & networking","tickerInSheet":true},{"rank":5,"ticker":"CORZ","issuer":"Core Scientific Inc New","equity":418.69432,"calls":0,"puts":0,"total":418.69432,"pct":0.0758949901040119,"category":"BTC miners pivoting to AI","tickerInSheet":true},{"rank":6,"ticker":"IREN","issuer":"Iren Limited","equity":328.622455,"calls":0,"puts":0,"total":328.622455,"pct":0.0595680351483657,"category":"BTC miners pivoting to AI","tickerInSheet":true},{"rank":7,"ticker":"APLD","issuer":"Applied Digital Corp","equity":278.033751,"calls":0,"puts":0,"total":278.033751,"pct":0.0503980297146766,"category":"BTC miners pivoting to AI","tickerInSheet":true},{"rank":8,"ticker":"SNDK","issuer":"Sandisk Corp","equity":250.245996,"calls":0,"puts":0,"total":250.245996,"pct":0.0453610581342221,"category":"Memory & storage","tickerInSheet":true},{"rank":9,"ticker":"EQT","issuer":"Eqt Corp","equity":133.04726,"calls":37.52,"puts":0,"total":170.56726,"pct":0.0309180227469253,"category":"Power & energy (data center)","tickerInSheet":true},{"rank":10,"ticker":"CIFR","issuer":"Cipher Mining Inc","equity":154.523813,"calls":0,"puts":0,"total":154.523813,"pct":0.0280098933715394,"category":"BTC miners pivoting to AI","tickerInSheet":true},{"rank":11,"ticker":"COHR","issuer":"Coherent Corp","equity":88.648971,"calls":0,"puts":0,"total":88.648971,"pct":0.0160690328370727,"category":"Optics & networking","tickerInSheet":true},{"rank":12,"ticker":"SEI","issuer":"Solaris Energy Infras Inc","equity":85.803005,"calls":0,"puts":0,"total":85.803005,"pct":0.0155531563346011,"category":"Power & energy (data center)","tickerInSheet":true},{"rank":13,"ticker":"TSEM","issuer":"Tower Semiconductor Ltd","equity":84.89513,"calls":0,"puts":0,"total":84.89513,"pct":0.0153885895830371,"category":"Foundry & semis","tickerInSheet":true},{"rank":14,"ticker":"RIOT","issuer":"Riot Platforms Inc","equity":78.144759,"calls":0,"puts":0,"total":78.144759,"pct":0.014164977712106,"category":"BTC miners pivoting to AI","tickerInSheet":true},{"rank":15,"ticker":"KRC","issuer":"Kilroy Rlty Corp","equity":49.616149,"calls":0,"puts":0,"total":49.616149,"pct":0.00899371440566516,"category":"Other","tickerInSheet":true},{"rank":16,"ticker":"HUT","issuer":"Hut 8 Corp","equity":39.517588,"calls":0,"puts":0,"total":39.517588,"pct":0.00716318996205733,"category":"BTC miners pivoting to AI","tickerInSheet":true},{"rank":17,"ticker":"WYFI","issuer":"Whitefiber Inc","equity":27.77008,"calls":0,"puts":0,"total":27.77008,"pct":0.00503376770620537,"category":"AI cloud & neoclouds","tickerInSheet":true},{"rank":18,"ticker":"PSIX","issuer":"Power Solutions Intl Inc","equity":24.701622,"calls":0,"puts":0,"total":24.701622,"pct":0.00447756099782544,"category":"Power & energy (data center)","tickerInSheet":true},{"rank":19,"ticker":"BTDR","issuer":"Bitdeer Technologies Group","equity":20.04348,"calls":0,"puts":0,"total":20.04348,"pct":0.00363319883644459,"category":"BTC miners pivoting to AI","tickerInSheet":true},{"rank":20,"ticker":"CLSK","issuer":"Cleanspark Inc","equity":16.600848,"calls":0,"puts":0,"total":16.600848,"pct":0.00300916715249016,"category":"BTC miners pivoting to AI","tickerInSheet":true},{"rank":21,"ticker":"BITF","issuer":"Bitfarms Ltd","equity":16.208185,"calls":0,"puts":0,"total":16.208185,"pct":0.00293799075224855,"category":"BTC miners pivoting to AI","tickerInSheet":true},{"rank":22,"ticker":"LBRT","issuer":"Liberty Energy Inc","equity":10.470512,"calls":0,"puts":0,"total":10.470512,"pct":0.00189794646515371,"category":"Power & energy (data center)","tickerInSheet":true},{"rank":23,"ticker":"INFY","issuer":"Infosys Ltd","equity":0,"calls":0,"puts":8.91,"total":8.91,"pct":0.00161507890010723,"category":"Other","tickerInSheet":true},{"rank":24,"ticker":"PUMP","issuer":"Propetro Hldg Corp","equity":8.656953,"calls":0,"puts":0,"total":8.656953,"pct":0.00156921011554658,"category":"Power & energy (data center)","tickerInSheet":true},{"rank":25,"ticker":"BW","issuer":"Babcock & Wilcox Enterprises","equity":8.583726,"calls":0,"puts":0,"total":8.583726,"pct":0.00155593655969718,"category":"Power & energy (data center)","tickerInSheet":true}],"hasHoldings":true,"periodOfReport":"2025-12-31","sourceTag":"xlsx"},{"name":"Value Aligned Research Advisors","shortLabel":"VARA","manager":"Ben Hoskin & David Field","cik":"0001963565","filesOwn13F":true,"totalBn":9.944995059,"numIssuers":52,"equityPct":0.490812124796652,"callsPct":0.418028667519321,"putsPct":0.0911592076840267,"optionsHeavy":true,"top10Concentration":0.579661317758328,"filingDate":"2026-02-17","thesis":"Closest analog by thesis. MUCH more options-heavy than SA. Long-short via options across mega-caps + AI infra","rank":1,"isReference":false,"holdings":[{"rank":1,"ticker":"NVDA","issuer":"Nvidia Corporation","equity":18.138804,"calls":1058.5367,"puts":186.7611,"total":1263.436604,"pct":0.127042456683437,"category":"GPU & AI compute","tickerInSheet":true},{"rank":2,"ticker":"TSM","issuer":"Taiwan Semiconductor Mfg Ltd","equity":0.206645,"calls":555.51092,"puts":394.236497,"total":949.954062,"pct":0.0955208178952601,"category":"Foundry & semis","tickerInSheet":true},{"rank":3,"ticker":"GOOGL","issuer":"Alphabet Inc","equity":5.101659,"calls":511.6298,"puts":0,"total":516.731459,"pct":0.0519589457746758,"category":"AI software / hyperscaler","tickerInSheet":true},{"rank":4,"ticker":"AMZN","issuer":"Amazon Com Inc","equity":1.136096,"calls":471.634506,"puts":17.19609,"total":489.966692,"pct":0.0492676657045285,"category":"AI software / hyperscaler","tickerInSheet":true},{"rank":5,"ticker":"AVGO","issuer":"Broadcom Inc","equity":76.110505,"calls":301.7992,"puts":100.369,"total":478.278705,"pct":0.0480924024760745,"category":"GPU & AI compute","tickerInSheet":true},{"rank":6,"ticker":"CRWV","issuer":"Coreweave Inc","equity":431.680834,"calls":33.885852,"puts":0,"total":465.566686,"pct":0.0468141696640334,"category":"AI cloud & neoclouds","tickerInSheet":true},{"rank":7,"ticker":"LITE","issuer":"Lumentum Hldgs Inc","equity":432.061567,"calls":0,"puts":0,"total":432.061567,"pct":0.0434451263612237,"category":"Optics & networking","tickerInSheet":true},{"rank":8,"ticker":"VRT","issuer":"Vertiv Holdings Co","equity":352.111076,"calls":59.068846,"puts":7.031234,"total":418.211156,"pct":0.0420524247140302,"category":"Power & energy (data center)","tickerInSheet":true},{"rank":9,"ticker":"INTC","issuer":"Intel Corp","equity":0,"calls":406.63062,"puts":0,"total":406.63062,"pct":0.0408879660158311,"category":"Foundry & semis","tickerInSheet":true},{"rank":10,"ticker":"CLS","issuer":"Celestica Inc","equity":339.900655,"calls":3.990735,"puts":0,"total":343.89139,"pct":0.0345793424692339,"category":"Other","tickerInSheet":true},{"rank":11,"ticker":"BE","issuer":"Bloom Energy Corp","equity":302.077256,"calls":1.503197,"puts":0,"total":303.580453,"pct":0.0305259531250613,"category":"Power & energy (data center)","tickerInSheet":true},{"rank":12,"ticker":"NBIS","issuer":"Nebius Group N.V.","equity":276.70998,"calls":19.151705,"puts":0,"total":295.861685,"pct":0.0297498071386422,"category":"AI cloud & neoclouds","tickerInSheet":false},{"rank":13,"ticker":"MU","issuer":"Micron Technology Inc","equity":62.449991,"calls":205.095626,"puts":12.957614,"total":280.503231,"pct":0.028205467105401,"category":"Memory & storage","tickerInSheet":true},{"rank":14,"ticker":"COHR","issuer":"Coherent Corp","equity":246.441002,"calls":1.347361,"puts":0,"total":247.788363,"pct":0.0249158859838504,"category":"Optics & networking","tickerInSheet":true},{"rank":15,"ticker":"GEV","issuer":"Ge Vernova Inc","equity":177.25668,"calls":23.267092,"puts":9.280694,"total":209.804466,"pct":0.0210964877061585,"category":"Power & energy (data center)","tickerInSheet":true},{"rank":16,"ticker":"MSFT","issuer":"Microsoft Corp","equity":0.180874,"calls":205.103242,"puts":0,"total":205.284116,"pct":0.0206419525381486,"category":"AI software / hyperscaler","tickerInSheet":true},{"rank":17,"ticker":"EQT","issuer":"Eqt Corp","equity":156.28152,"calls":14.77216,"puts":0,"total":171.05368,"pct":0.0171999763685353,"category":"Power & energy (data center)","tickerInSheet":true},{"rank":18,"ticker":"AMAT","issuer":"Applied Matls Inc","equity":138.319985,"calls":23.797274,"puts":0,"total":162.117259,"pct":0.0163013916083636,"category":"Semis equipment","tickerInSheet":true},{"rank":19,"ticker":"LRCX","issuer":"Lam Research Corp","equity":121.029909,"calls":25.231932,"puts":0,"total":146.261841,"pct":0.0147070803084649,"category":"Semis equipment","tickerInSheet":false},{"rank":20,"ticker":"ORCL","issuer":"Oracle Corp","equity":27.562028,"calls":100.982871,"puts":14.988579,"total":143.533478,"pct":0.014432734973569,"category":"AI software / hyperscaler","tickerInSheet":true},{"rank":21,"ticker":"APLD","issuer":"Applied Digital Corp","equity":138.379846,"calls":0,"puts":0,"total":138.379846,"pct":0.013914521342549,"category":"BTC miners pivoting to AI","tickerInSheet":true},{"rank":22,"ticker":"VST","issuer":"Vistra Corp","equity":115.529542,"calls":14.406769,"puts":8.373027,"total":138.309338,"pct":0.0139074315451603,"category":"Power & energy (data center)","tickerInSheet":true},{"rank":23,"ticker":"FIX","issuer":"Comfort Sys Usa Inc","equity":137.213229,"calls":0,"puts":0,"total":137.213229,"pct":0.0137972143963837,"category":"Power & energy (data center)","tickerInSheet":true},{"rank":24,"ticker":"IREN","issuer":"Iren Limited","equity":132.770879,"calls":0,"puts":0,"total":132.770879,"pct":0.0133505223695255,"category":"BTC miners pivoting to AI","tickerInSheet":true},{"rank":25,"ticker":"HUT","issuer":"Hut 8 Corp","equity":128.104425,"calls":0,"puts":0,"total":128.104425,"pct":0.0128812959926077,"category":"BTC miners pivoting to AI","tickerInSheet":true},{"rank":26,"ticker":"CEG","issuer":"Constellation Energy Corp","equity":104.877738,"calls":13.600895,"puts":4.663164,"total":123.141797,"pct":0.0123822884043124,"category":"Power & energy (data center)","tickerInSheet":true},{"rank":27,"ticker":"RIOT","issuer":"Riot Platforms Inc","equity":121.937942,"calls":0,"puts":0,"total":121.937942,"pct":0.0122612370621189,"category":"BTC miners pivoting to AI","tickerInSheet":true},{"rank":28,"ticker":"CORZ","issuer":"Core Scientific Inc New","equity":117.785988,"calls":0,"puts":0,"total":117.785988,"pct":0.0118437452508743,"category":"BTC miners pivoting to AI","tickerInSheet":true},{"rank":29,"ticker":"CIFR","issuer":"Cipher Mining Inc","equity":109.925026,"calls":0,"puts":0,"total":109.925026,"pct":0.0110533012181359,"category":"BTC miners pivoting to AI","tickerInSheet":true},{"rank":30,"ticker":"AMD","issuer":"Advanced Micro Devices Inc","equity":0,"calls":94.722968,"puts":0,"total":94.722968,"pct":0.00952468728622221,"category":"GPU & AI compute","tickerInSheet":false},{"rank":31,"ticker":"ALAB","issuer":"Astera Labs Inc","equity":94.54505,"calls":0,"puts":0,"total":94.54505,"pct":0.00950679708125534,"category":"GPU & AI compute","tickerInSheet":false},{"rank":32,"ticker":"SNOW","issuer":"Snowflake Inc","equity":68.489457,"calls":10.836384,"puts":0,"total":79.325841,"pct":0.00797645856326614,"category":"Other","tickerInSheet":false},{"rank":33,"ticker":"AAPL","issuer":"Apple Inc","equity":0,"calls":0,"puts":71.77104,"total":71.77104,"pct":0.00721679996563184,"category":"AI software / hyperscaler","tickerInSheet":true},{"rank":34,"ticker":"EME","issuer":"Emcor Group Inc","equity":67.974763,"calls":0,"puts":0,"total":67.974763,"pct":0.00683507257637945,"category":"Power & energy (data center)","tickerInSheet":true},{"rank":35,"ticker":"KLAC","issuer":"Kla Corp","equity":61.709053,"calls":0,"puts":0,"total":61.709053,"pct":0.00620503606426176,"category":"Semis equipment","tickerInSheet":false},{"rank":36,"ticker":"TLN","issuer":"Talen Energy Corp","equity":58.979949,"calls":0,"puts":0,"total":58.979949,"pct":0.00593061621952486,"category":"Other","tickerInSheet":false},{"rank":37,"ticker":"QCOM","issuer":"Qualcomm Inc","equity":0,"calls":0,"puts":53.761015,"total":53.761015,"pct":0.00540583627051152,"category":"Other","tickerInSheet":false},{"rank":38,"ticker":"SEI","issuer":"Solaris Energy Infras Inc","equity":44.863916,"calls":0,"puts":0,"total":44.863916,"pct":0.00451120545901118,"category":"Power & energy (data center)","tickerInSheet":true},{"rank":39,"ticker":"AGX","issuer":"Argan Inc","equity":40.373789,"calls":0,"puts":0,"total":40.373789,"pct":0.00405970930709137,"category":"Other","tickerInSheet":false},{"rank":40,"ticker":"BTDR","issuer":"Bitdeer Technologies Group","equity":36.629953,"calls":0,"puts":0,"total":36.629953,"pct":0.00368325502252017,"category":"BTC miners pivoting to AI","tickerInSheet":true},{"rank":41,"ticker":"STX","issuer":"Seagate Technology Hldngs Pl","equity":34.7768,"calls":0,"puts":0,"total":34.7768,"pct":0.00349691475900008,"category":"Memory & storage","tickerInSheet":false},{"rank":42,"ticker":"GTLB","issuer":"Gitlab Inc","equity":27.365075,"calls":0.292734,"puts":0,"total":27.657809,"pct":0.00278107820425414,"category":"Other","tickerInSheet":false},{"rank":43,"ticker":"ISHARES","issuer":"Ishares Tr","equity":0,"calls":0,"puts":24.871166,"total":24.871166,"pct":0.00250087263517463,"category":"Other","tickerInSheet":false},{"rank":44,"ticker":"GLXY","issuer":"Galaxy Digital Inc.","equity":23.727336,"calls":0,"puts":0,"total":23.727336,"pct":0.00238585699230964,"category":"BTC miners pivoting to AI","tickerInSheet":false},{"rank":45,"ticker":"NRG","issuer":"Nrg Energy Inc","equity":21.574791,"calls":0.493644,"puts":0,"total":22.068435,"pct":0.00221904936795605,"category":"Other","tickerInSheet":false},{"rank":46,"ticker":"LGN","issuer":"Legence Corp","equity":10.83235,"calls":0,"puts":0,"total":10.83235,"pct":0.00108922628274179,"category":"Other","tickerInSheet":false},{"rank":47,"ticker":"HNRG","issuer":"Hallador Energy Company","equity":6.107251,"calls":0,"puts":0,"total":6.107251,"pct":0.000614102969761968,"category":"Other","tickerInSheet":false},{"rank":48,"ticker":"BKV","issuer":"Bkv Corp","equity":5.220809,"calls":0,"puts":0,"total":5.220809,"pct":0.00052496848606026,"category":"Other","tickerInSheet":false},{"rank":49,"ticker":"TSSI","issuer":"Tss Inc Del","equity":3.255806,"calls":0,"puts":0,"total":3.255806,"pct":0.000327381359234922,"category":"Other","tickerInSheet":false},{"rank":50,"ticker":"AAON","issuer":"Aaon Inc","equity":3.199145,"calls":0,"puts":0,"total":3.199145,"pct":0.000321683920506813,"category":"Other","tickerInSheet":false},{"rank":51,"ticker":"ISHARES","issuer":"Ishares Inc","equity":0,"calls":0,"puts":0.31765,"total":0.31765,"pct":0.0000319406895745548,"category":"Other","tickerInSheet":false},{"rank":52,"ticker":"ASML","issuer":"Asml Holding N V","equity":0.217182,"calls":0,"puts":0,"total":0.217182,"pct":0.0000218383215588886,"category":"Semis equipment","tickerInSheet":false}],"hasHoldings":true,"periodOfReport":"2025-12-31","sourceTag":"xlsx"},{"name":"Whale Rock Flagship AI Fund LP","shortLabel":"Whale Rock Flagship AI Fund LP","manager":"Alex Sacerdote","cik":null,"filesOwn13F":false,"totalBn":null,"numIssuers":null,"equityPct":null,"callsPct":null,"putsPct":null,"optionsHeavy":false,"top10Concentration":null,"filingDate":"n/a","thesis":"Sub-fund inside Whale Rock — no standalone 13F. Positions roll up into Whale Rock parent (row 8)","rank":2,"isReference":false,"holdings":[],"hasHoldings":false},{"name":"Point72 Turion","shortLabel":"Point72 Turion","manager":"Eric Sanchez (Steve Cohen)","cik":null,"filesOwn13F":false,"totalBn":null,"numIssuers":null,"equityPct":null,"callsPct":null,"putsPct":null,"optionsHeavy":false,"top10Concentration":null,"filingDate":"n/a","thesis":"Sub-fund inside Point72 — no standalone 13F. ~$3B AUM as of Nov 2025, +30% YTD","rank":3,"isReference":false,"holdings":[],"hasHoldings":false},{"name":"Light Street Capital","shortLabel":"Light Street","manager":"Glen Kacher","cik":"0001569049","filesOwn13F":true,"totalBn":0.534227142,"numIssuers":23,"equityPct":0.9309205072175085,"callsPct":0,"putsPct":0.06907949278249138,"optionsHeavy":false,"top10Concentration":0.7889936206198974,"filingDate":"2026-05-15","thesis":"Tiger Grandcub. TMT-focused. TSM/NVDA/AVGO heavy. Smaller AUM but very concentrated","rank":4,"isReference":false,"holdings":[{"issuer":"TAIWAN SEMICONDUCTOR MANUFAC","ticker":"TSM","equity":76.912351,"calls":0,"puts":36.90414,"total":113.816491,"rank":1,"pct":0.21304887388143975,"category":"Foundry & semis","tickerInSheet":false},{"issuer":"NVIDIA CORPORATION","ticker":"NVDA","equity":47.474122,"calls":0,"puts":0,"total":47.474122,"rank":2,"pct":0.0888650505892866,"category":"GPU & AI compute","tickerInSheet":false},{"issuer":"BROADCOM INC","ticker":"AVGO","equity":46.364598,"calls":0,"puts":0,"total":46.364598,"rank":3,"pct":0.08678817370907747,"category":"GPU & AI compute","tickerInSheet":false},{"issuer":"ADVANCED MICRO DEVICES INC","ticker":"AMD","equity":44.602231,"calls":0,"puts":0,"total":44.602231,"rank":4,"pct":0.0834892641976622,"category":"GPU & AI compute","tickerInSheet":false},{"issuer":"CHIME FINL INC","ticker":"CHYM","equity":38.913729,"calls":0,"puts":0,"total":38.913729,"rank":5,"pct":0.07284116799891084,"category":"Other","tickerInSheet":false},{"issuer":"MKS INC.","ticker":"MKSI","equity":28.09749,"calls":0,"puts":0,"total":28.09749,"rank":6,"pct":0.052594650834869035,"category":"Other","tickerInSheet":false},{"issuer":"JFROG LTD","ticker":"FROG","equity":26.98475,"calls":0,"puts":0,"total":26.98475,"rank":7,"pct":0.05051175404337655,"category":"Other","tickerInSheet":false},{"issuer":"AMAZON COM INC","ticker":"AMZN","equity":25.992096,"calls":0,"puts":0,"total":25.992096,"rank":8,"pct":0.048653641787447785,"category":"AI software / hyperscaler","tickerInSheet":false},{"issuer":"GITLAB INC","ticker":"GTLB","equity":25.3188,"calls":0,"puts":0,"total":25.3188,"rank":9,"pct":0.04739332394309535,"category":"Other","tickerInSheet":false},{"issuer":"BILL HOLDINGS INC","ticker":"BILL","equity":23.9375,"calls":0,"puts":0,"total":23.9375,"rank":10,"pct":0.0448077196347317,"category":"Other","tickerInSheet":false},{"issuer":"COUPANG INC","ticker":"CPNG","equity":19.860948,"calls":0,"puts":0,"total":19.860948,"rank":11,"pct":0.037176972936354476,"category":"Other","tickerInSheet":false},{"issuer":"AMKOR TECHNOLOGY INC","ticker":"AMKR","equity":18.32676,"calls":0,"puts":0,"total":18.32676,"rank":12,"pct":0.03430518324357245,"category":"Other","tickerInSheet":false},{"issuer":"ASML HLDG NV","ticker":"ASML","equity":14.457805,"calls":0,"puts":0,"total":14.457805,"rank":13,"pct":0.027063029680360194,"category":"Semis equipment","tickerInSheet":false},{"issuer":"ALPHABET INC","ticker":"GOOGL","equity":12.2213,"calls":0,"puts":0,"total":12.2213,"rank":14,"pct":0.02287659880822753,"category":"AI software / hyperscaler","tickerInSheet":false},{"issuer":"SAMSARA INC","ticker":"IOT","equity":12.16896,"calls":0,"puts":0,"total":12.16896,"rank":15,"pct":0.022778625500836123,"category":"Other","tickerInSheet":false},{"issuer":"CELLEBRITE DI LTD","ticker":"CLBT","equity":8.831947,"calls":0,"puts":0,"total":8.831947,"rank":16,"pct":0.01653219446495289,"category":"Other","tickerInSheet":false},{"issuer":"BLOOM ENERGY CORP","ticker":"BE","equity":6.859181,"calls":0,"puts":0,"total":6.859181,"rank":17,"pct":0.012839446858355242,"category":"Power & energy (data center)","tickerInSheet":false},{"issuer":"NXP SEMICONDUCTORS N V","ticker":"NXPI","equity":5.01993,"calls":0,"puts":0,"total":5.01993,"rank":18,"pct":0.00939662103502783,"category":"Other","tickerInSheet":false},{"issuer":"DATADOG INC","ticker":"DDOG","equity":4.722,"calls":0,"puts":0,"total":4.722,"rank":19,"pct":0.008838936902984986,"category":"Other","tickerInSheet":false},{"issuer":"ANALOG DEVICES INC","ticker":"ADI","equity":3.34047,"calls":0,"puts":0,"total":3.34047,"rank":20,"pct":0.006252902066140249,"category":"Other","tickerInSheet":false},{"issuer":"GDS HLDGS LTD","ticker":"?GDSHLDGSLTD","equity":2.886456,"calls":0,"puts":0,"total":2.886456,"rank":21,"pct":0.0054030500756548985,"category":"Other","tickerInSheet":false},{"issuer":"LUMENTUM HLDGS INC","ticker":"LITE","equity":2.032382,"calls":0,"puts":0,"total":2.032382,"rank":22,"pct":0.0038043405888950515,"category":"Optics & networking","tickerInSheet":false},{"issuer":"AMPLITUDE INC","ticker":"AMPL","equity":1.997196,"calls":0,"puts":0,"total":1.997196,"rank":23,"pct":0.003738477218740788,"category":"Other","tickerInSheet":false}],"hasHoldings":true,"periodOfReport":"2026-03-31","sourceTag":"edgar"},{"name":"Coatue Management","shortLabel":"Coatue","manager":"Philippe Laffont","cik":"0001135730","filesOwn13F":true,"totalBn":29.056031305,"numIssuers":59,"equityPct":1.0000000000000002,"callsPct":0,"putsPct":0,"optionsHeavy":false,"top10Concentration":0.648369661921384,"filingDate":"2026-05-15","thesis":"Tiger Cub, the largest hedge-fund holder of TSMC. Mega-cap + power (GEV, CEG) + semis equip (AMAT)","rank":5,"isReference":false,"holdings":[{"issuer":"TAIWAN SEMICONDUCTOR MANUFAC","ticker":"TSM","equity":3137.374709,"calls":0,"puts":0,"total":3137.374709,"rank":1,"pct":0.10797671148090057,"category":"Foundry & semis","tickerInSheet":false},{"issuer":"GE VERNOVA INC","ticker":"GEV","equity":2245.411301,"calls":0,"puts":0,"total":2245.411301,"rank":2,"pct":0.07727866470923049,"category":"Power & energy (data center)","tickerInSheet":false},{"issuer":"LAM RESEARCH CORP","ticker":"LRCX","equity":2145.895279,"calls":0,"puts":0,"total":2145.895279,"rank":3,"pct":0.07385369517518145,"category":"Semis equipment","tickerInSheet":false},{"issuer":"APPLIED MATLS INC","ticker":"AMAT","equity":1793.782961,"calls":0,"puts":0,"total":1793.782961,"rank":4,"pct":0.06173530521669432,"category":"Semis equipment","tickerInSheet":false},{"issuer":"BROADCOM INC","ticker":"AVGO","equity":1703.497233,"calls":0,"puts":0,"total":1703.497233,"rank":5,"pct":0.05862800790371051,"category":"GPU & AI compute","tickerInSheet":false},{"issuer":"EATON CORP PLC","ticker":"ETN","equity":1698.39528,"calls":0,"puts":0,"total":1698.39528,"rank":6,"pct":0.058452417750105394,"category":"Power & energy (data center)","tickerInSheet":false},{"issuer":"AMAZON COM INC","ticker":"AMZN","equity":1651.740634,"calls":0,"puts":0,"total":1651.740634,"rank":7,"pct":0.05684673920748999,"category":"AI software / hyperscaler","tickerInSheet":false},{"issuer":"META PLATFORMS INC","ticker":"META","equity":1608.8616,"calls":0,"puts":0,"total":1608.8616,"rank":8,"pct":0.055371003118486625,"category":"AI software / hyperscaler","tickerInSheet":false},{"issuer":"ALPHABET INC","ticker":"GOOGL","equity":1560.471553,"calls":0,"puts":0,"total":1560.471553,"rank":9,"pct":0.05370559855954836,"category":"AI software / hyperscaler","tickerInSheet":false},{"issuer":"CONSTELLATION ENERGY CORP","ticker":"CEG","equity":1293.618644,"calls":0,"puts":0,"total":1293.618644,"rank":10,"pct":0.044521518800036276,"category":"Power & energy (data center)","tickerInSheet":false},{"issuer":"NVIDIA CORPORATION","ticker":"NVDA","equity":1104.234528,"calls":0,"puts":0,"total":1104.234528,"rank":11,"pct":0.038003625354367715,"category":"GPU & AI compute","tickerInSheet":false},{"issuer":"EQUINIX INC","ticker":"?EQUINIXINC","equity":1069.330093,"calls":0,"puts":0,"total":1069.330093,"rank":12,"pct":0.03680234515771561,"category":"Other","tickerInSheet":false},{"issuer":"MICROSOFT CORP","ticker":"MSFT","equity":918.027893,"calls":0,"puts":0,"total":918.027893,"rank":13,"pct":0.03159508892881818,"category":"AI software / hyperscaler","tickerInSheet":false},{"issuer":"NETFLIX INC.","ticker":"NFLX","equity":662.815794,"calls":0,"puts":0,"total":662.815794,"rank":14,"pct":0.022811642341737902,"category":"Other","tickerInSheet":false},{"issuer":"ASML HLDG NV","ticker":"ASML","equity":655.440753,"calls":0,"puts":0,"total":655.440753,"rank":15,"pct":0.02255782099488621,"category":"Semis equipment","tickerInSheet":false},{"issuer":"SPOTIFY TECHNOLOGY S A","ticker":"SPOT","equity":640.524408,"calls":0,"puts":0,"total":640.524408,"rank":16,"pct":0.022044456150134232,"category":"Other","tickerInSheet":false},{"issuer":"APPLOVIN CORP","ticker":"APP","equity":513.423184,"calls":0,"puts":0,"total":513.423184,"rank":17,"pct":0.017670107063508342,"category":"AI software / hyperscaler","tickerInSheet":false},{"issuer":"NATERA INC","ticker":"NTRA","equity":508.342981,"calls":0,"puts":0,"total":508.342981,"rank":18,"pct":0.01749526546361215,"category":"Other","tickerInSheet":false},{"issuer":"NU HLDGS LTD","ticker":"NU","equity":421.523487,"calls":0,"puts":0,"total":421.523487,"rank":19,"pct":0.014507262969787058,"category":"Other","tickerInSheet":false},{"issuer":"INTUITIVE SURGICAL INC","ticker":"ISRG","equity":394.250172,"calls":0,"puts":0,"total":394.250172,"rank":20,"pct":0.013568617402066087,"category":"Other","tickerInSheet":false},{"issuer":"REDDIT INC","ticker":"RDDT","equity":375.658823,"calls":0,"puts":0,"total":375.658823,"rank":21,"pct":0.012928772655037583,"category":"Other","tickerInSheet":false},{"issuer":"SYNOPSYS INC","ticker":"?SYNOPSYSINC","equity":302.022605,"calls":0,"puts":0,"total":302.022605,"rank":22,"pct":0.01039448924836571,"category":"Other","tickerInSheet":false},{"issuer":"FIRST CTZNS BANCSHARES INC D","ticker":"?FIRSTCTZNSBA","equity":262.906301,"calls":0,"puts":0,"total":262.906301,"rank":23,"pct":0.009048252262681128,"category":"Other","tickerInSheet":false},{"issuer":"VERTIV HOLDINGS CO","ticker":"VRT","equity":245.977597,"calls":0,"puts":0,"total":245.977597,"rank":24,"pct":0.008465629542382544,"category":"Power & energy (data center)","tickerInSheet":false},{"issuer":"VISA INC","ticker":"V","equity":217.235907,"calls":0,"puts":0,"total":217.235907,"rank":25,"pct":0.007476447995243513,"category":"Other","tickerInSheet":false},{"issuer":"CARVANA CO","ticker":"CVNA","equity":214.092781,"calls":0,"puts":0,"total":214.092781,"rank":26,"pct":0.007368273345821961,"category":"Other","tickerInSheet":false},{"issuer":"CHIME FINL INC","ticker":"CHYM","equity":188.648409,"calls":0,"puts":0,"total":188.648409,"rank":27,"pct":0.006492573160448692,"category":"Other","tickerInSheet":false},{"issuer":"MASTEC INC","ticker":"MTZ","equity":187.766498,"calls":0,"puts":0,"total":187.766498,"rank":28,"pct":0.0064622210799893,"category":"Other","tickerInSheet":false},{"issuer":"QUALCOMM INC","ticker":"QCOM","equity":178.658039,"calls":0,"puts":0,"total":178.658039,"rank":29,"pct":0.006148741964263244,"category":"Other","tickerInSheet":false},{"issuer":"CARIS LIFE SCIENCES INC","ticker":"CAI","equity":175.581457,"calls":0,"puts":0,"total":175.581457,"rank":30,"pct":0.0060428575106121155,"category":"Other","tickerInSheet":false},{"issuer":"SOLSTICE ADVANCED MATLS INC","ticker":"?SOLSTICEADVA","equity":126.013498,"calls":0,"puts":0,"total":126.013498,"rank":31,"pct":0.004336913623104317,"category":"Other","tickerInSheet":false},{"issuer":"C H ROBINSON WORLDWIDE IN","ticker":"?CHROBINSONWO","equity":95.159771,"calls":0,"puts":0,"total":95.159771,"rank":32,"pct":0.0032750436562072665,"category":"Other","tickerInSheet":false},{"issuer":"SPROUTS FMRS MKT INC","ticker":"SFM","equity":92.847011,"calls":0,"puts":0,"total":92.847011,"rank":33,"pct":0.003195447100995612,"category":"Other","tickerInSheet":false},{"issuer":"DOORDASH INC","ticker":"DASH","equity":82.853971,"calls":0,"puts":0,"total":82.853971,"rank":34,"pct":0.0028515240133893433,"category":"Other","tickerInSheet":false},{"issuer":"GENERAC HLDGS INC","ticker":"?GENERACHLDGS","equity":76.278904,"calls":0,"puts":0,"total":76.278904,"rank":35,"pct":0.002625234781698278,"category":"Other","tickerInSheet":false},{"issuer":"ENPHASE ENERGY INC","ticker":"?ENPHASEENERG","equity":62.306834,"calls":0,"puts":0,"total":62.306834,"rank":36,"pct":0.0021443683531989504,"category":"Other","tickerInSheet":false},{"issuer":"PAYPAL HLDGS INC","ticker":"PYPL","equity":56.247576,"calls":0,"puts":0,"total":56.247576,"rank":37,"pct":0.0019358313394410764,"category":"Other","tickerInSheet":false},{"issuer":"MICRON TECHNOLOGY INC","ticker":"MU","equity":56.058129,"calls":0,"puts":0,"total":56.058129,"rank":38,"pct":0.0019293112817631581,"category":"Memory & storage","tickerInSheet":false},{"issuer":"ZILLOW GROUP INC","ticker":"Z","equity":44.192529,"calls":0,"puts":0,"total":44.192529,"rank":39,"pct":0.0015209416776886281,"category":"Other","tickerInSheet":false},{"issuer":"ARBOR REALTY TRUST INC","ticker":"?ARBORREALTYT","equity":32.357983,"calls":0,"puts":0,"total":32.357983,"rank":40,"pct":0.0011136408362291306,"category":"Other","tickerInSheet":false},{"issuer":"THE TRADE DESK INC","ticker":"?THETRADEDESK","equity":31.473049,"calls":0,"puts":0,"total":31.473049,"rank":41,"pct":0.0010831847154082629,"category":"Other","tickerInSheet":false},{"issuer":"NOVAVAX INC","ticker":"?NOVAVAXINC","equity":31.233066,"calls":0,"puts":0,"total":31.233066,"rank":42,"pct":0.00107492539748969,"category":"Other","tickerInSheet":false},{"issuer":"PINTEREST INC","ticker":"?PINTERESTINC","equity":30.788532,"calls":0,"puts":0,"total":30.788532,"rank":43,"pct":0.0010596261986647113,"category":"Other","tickerInSheet":false},{"issuer":"QUANTUMSCAPE CORP","ticker":"QS","equity":27.402068,"calls":0,"puts":0,"total":27.402068,"rank":44,"pct":0.0009430767647639689,"category":"Other","tickerInSheet":false},{"issuer":"UIPATH INC","ticker":"?UIPATHINC","equity":25.192083,"calls":0,"puts":0,"total":25.192083,"rank":45,"pct":0.0008670173409286255,"category":"Other","tickerInSheet":false},{"issuer":"UPSTART HLDGS INC","ticker":"?UPSTARTHLDGS","equity":22.339791,"calls":0,"puts":0,"total":22.339791,"rank":46,"pct":0.0007688521107889824,"category":"Other","tickerInSheet":false},{"issuer":"TESLA INC","ticker":"TSLA","equity":21.873026,"calls":0,"puts":0,"total":21.873026,"rank":47,"pct":0.0007527878040328261,"category":"Other","tickerInSheet":false},{"issuer":"MEDICAL PROPERTIES TRUST INC","ticker":"?MEDICALPROPE","equity":20.952593,"calls":0,"puts":0,"total":20.952593,"rank":48,"pct":0.0007211099403102051,"category":"Other","tickerInSheet":false},{"issuer":"RINGCENTRAL INC","ticker":"?RINGCENTRALI","equity":15.298144,"calls":0,"puts":0,"total":15.298144,"rank":49,"pct":0.0005265049393503191,"category":"Other","tickerInSheet":false},{"issuer":"PELOTON INTERACTIVE INC","ticker":"?PELOTONINTER","equity":10.725,"calls":0,"puts":0,"total":10.725,"rank":50,"pct":0.00036911441509062624,"category":"Other","tickerInSheet":false},{"issuer":"PLUG PWR INC","ticker":"?PLUGPWRINC","equity":5.752249,"calls":0,"puts":0,"total":5.752249,"rank":51,"pct":0.00019797091143036266,"category":"Other","tickerInSheet":false},{"issuer":"LUCID GROUP INC","ticker":"?LUCIDGROUPIN","equity":2.815095,"calls":0,"puts":0,"total":2.815095,"rank":52,"pct":0.00009688504842420013,"category":"Other","tickerInSheet":false},{"issuer":"ISHARES BITCOIN TRUST ETF","ticker":"IBIT","equity":2.582823,"calls":0,"puts":0,"total":2.582823,"rank":53,"pct":0.00008889111430560526,"category":"Other","tickerInSheet":false},{"issuer":"OLAPLEX HLDGS INC","ticker":"?OLAPLEXHLDGS","equity":2.567885,"calls":0,"puts":0,"total":2.567885,"rank":54,"pct":0.00008837700417668929,"category":"Other","tickerInSheet":false},{"issuer":"STITCH FIX INC","ticker":"?STITCHFIXINC","equity":2.434085,"calls":0,"puts":0,"total":2.434085,"rank":55,"pct":0.0000837721082569573,"category":"Other","tickerInSheet":false},{"issuer":"HERTZ GLOBAL HLDGS INC","ticker":"?HERTZGLOBALH","equity":1.56135,"calls":0,"puts":0,"total":1.56135,"rank":56,"pct":0.000053735831422074525,"category":"Other","tickerInSheet":false},{"issuer":"CHARGEPOINT HOLDINGS INC","ticker":"?CHARGEPOINTH","equity":0.748858,"calls":0,"puts":0,"total":0.748858,"rank":57,"pct":0.000025772893487732978,"category":"Other","tickerInSheet":false},{"issuer":"BEYOND MEAT INC","ticker":"?BEYONDMEATIN","equity":0.240925,"calls":0,"puts":0,"total":0.240925,"rank":58,"pct":0.000008291738037828357,"category":"Other","tickerInSheet":false},{"issuer":"AMC ENTMT HLDGS INC","ticker":"?AMCENTMTHLDG","equity":0.223573,"calls":0,"puts":0,"total":0.223573,"rank":59,"pct":0.000007694547051287326,"category":"Other","tickerInSheet":false}],"hasHoldings":true,"periodOfReport":"2026-03-31","sourceTag":"edgar"},{"name":"Altimeter Capital","shortLabel":"Altimeter","manager":"Brad Gerstner","cik":"0001541617","filesOwn13F":true,"totalBn":5.699287719,"numIssuers":13,"equityPct":1,"callsPct":0,"putsPct":0,"optionsHeavy":false,"top10Concentration":0.9853705401252091,"filingDate":"2026-05-15","thesis":"Highly concentrated long-only crossover. ~90% in top 10. Added CRWV + BE in Q4 (same as SA)","rank":6,"isReference":false,"holdings":[{"issuer":"NVIDIA CORPORATION","ticker":"NVDA","equity":1628.205202,"calls":0,"puts":0,"total":1628.205202,"rank":1,"pct":0.2856857351791472,"category":"GPU & AI compute","tickerInSheet":false},{"issuer":"META PLATFORMS INC","ticker":"META","equity":1117.583294,"calls":0,"puts":0,"total":1117.583294,"rank":2,"pct":0.1960917484959141,"category":"AI software / hyperscaler","tickerInSheet":false},{"issuer":"UBER TECHNOLOGIES INC","ticker":"UBER","equity":573.409561,"calls":0,"puts":0,"total":573.409561,"rank":3,"pct":0.10061074107355485,"category":"Other","tickerInSheet":false},{"issuer":"TAIWAN SEMICONDUCTOR MFG LTD","ticker":"TSM","equity":461.529866,"calls":0,"puts":0,"total":461.529866,"rank":4,"pct":0.08098027135239634,"category":"Foundry & semis","tickerInSheet":false},{"issuer":"MICROSOFT CORP","ticker":"MSFT","equity":438.145057,"calls":0,"puts":0,"total":438.145057,"rank":5,"pct":0.07687716055101657,"category":"AI software / hyperscaler","tickerInSheet":false},{"issuer":"AMAZON COM INC","ticker":"AMZN","equity":435.192245,"calls":0,"puts":0,"total":435.192245,"rank":6,"pct":0.07635905861519815,"category":"AI software / hyperscaler","tickerInSheet":false},{"issuer":"COREWEAVE INC","ticker":"CRWV","equity":348.543341,"calls":0,"puts":0,"total":348.543341,"rank":7,"pct":0.06115559666132377,"category":"AI cloud & neoclouds","tickerInSheet":false},{"issuer":"SNOWFLAKE INC","ticker":"SNOW","equity":290.517025,"calls":0,"puts":0,"total":290.517025,"rank":8,"pct":0.05097426894794044,"category":"Other","tickerInSheet":false},{"issuer":"ARM HOLDINGS PLC","ticker":"ARM","equity":259.511763,"calls":0,"puts":0,"total":259.511763,"rank":9,"pct":0.045534069482902687,"category":"Foundry & semis","tickerInSheet":false},{"issuer":"AXON ENTERPRISE INC","ticker":"AXON","equity":63.272864,"calls":0,"puts":0,"total":63.272864,"rank":10,"pct":0.011101889765814787,"category":"Other","tickerInSheet":false},{"issuer":"ROBINHOOD MKTS INC","ticker":"?ROBINHOODMKT","equity":62.348586,"calls":0,"puts":0,"total":62.348586,"rank":11,"pct":0.010939715465170394,"category":"Other","tickerInSheet":false},{"issuer":"BROADCOM INC","ticker":"AVGO","equity":20.766265,"calls":0,"puts":0,"total":20.766265,"rank":12,"pct":0.0036436597034346005,"category":"GPU & AI compute","tickerInSheet":false},{"issuer":"GRAB HOLDINGS LIMITED","ticker":"GRAB","equity":0.26265,"calls":0,"puts":0,"total":0.26265,"rank":13,"pct":0.00004608470618607139,"category":"Other","tickerInSheet":false}],"hasHoldings":true,"periodOfReport":"2026-03-31","sourceTag":"edgar"},{"name":"Tiger Global Management","shortLabel":"Tiger Global","manager":"Chase Coleman","cik":"0001167483","filesOwn13F":true,"totalBn":22.845413829,"numIssuers":53,"equityPct":0.9999999999999999,"callsPct":0,"putsPct":0,"optionsHeavy":false,"top10Concentration":0.6949210997809675,"filingDate":"2026-05-15","thesis":"Tiger Cub. First quarter in 13 quarters where META/MSFT wasn't #1 — now GOOGL. Trimmed NVDA/TSM","rank":7,"isReference":false,"holdings":[{"issuer":"ALPHABET INC","ticker":"GOOGL","equity":3057.165959,"calls":0,"puts":0,"total":3057.165959,"rank":1,"pct":0.13381967960323088,"category":"AI software / hyperscaler","tickerInSheet":false},{"issuer":"NVIDIA CORPORATION","ticker":"NVDA","equity":2094.849549,"calls":0,"puts":0,"total":2094.849549,"rank":2,"pct":0.09169672148117515,"category":"GPU & AI compute","tickerInSheet":false},{"issuer":"AMAZON COM INC","ticker":"AMZN","equity":2082.7,"calls":0,"puts":0,"total":2082.7,"rank":3,"pct":0.09116490581388452,"category":"AI software / hyperscaler","tickerInSheet":false},{"issuer":"TAIWAN SEMICONDUCTOR MANUFAC","ticker":"TSM","equity":1880.716758,"calls":0,"puts":0,"total":1880.716758,"rank":4,"pct":0.082323602105759,"category":"Foundry & semis","tickerInSheet":false},{"issuer":"META PLATFORMS INC","ticker":"META","equity":1766.0875,"calls":0,"puts":0,"total":1766.0875,"rank":5,"pct":0.07730599730953992,"category":"AI software / hyperscaler","tickerInSheet":false},{"issuer":"SEA LTD","ticker":"SE","equity":1276.585296,"calls":0,"puts":0,"total":1276.585296,"rank":6,"pct":0.0558792808725356,"category":"Other","tickerInSheet":false},{"issuer":"BROADCOM INC","ticker":"AVGO","equity":1109.535781,"calls":0,"puts":0,"total":1109.535781,"rank":7,"pct":0.04856711238872608,"category":"GPU & AI compute","tickerInSheet":false},{"issuer":"MICROSOFT CORP","ticker":"MSFT","equity":925.425,"calls":0,"puts":0,"total":925.425,"rank":8,"pct":0.04050813029376006,"category":"AI software / hyperscaler","tickerInSheet":false},{"issuer":"GE VERNOVA INC","ticker":"GEV","equity":849.326463,"calls":0,"puts":0,"total":849.326463,"rank":9,"pct":0.03717711000366576,"category":"Power & energy (data center)","tickerInSheet":false},{"issuer":"LAM RESEARCH CORP","ticker":"LRCX","equity":833.367797,"calls":0,"puts":0,"total":833.367797,"rank":10,"pct":0.036478559908690374,"category":"Semis equipment","tickerInSheet":false},{"issuer":"SPOTIFY TECHNOLOGY S A","ticker":"SPOT","equity":766.526817,"calls":0,"puts":0,"total":766.526817,"rank":11,"pct":0.03355276567706424,"category":"Other","tickerInSheet":false},{"issuer":"COUPANG INC","ticker":"CPNG","equity":653.161284,"calls":0,"puts":0,"total":653.161284,"rank":12,"pct":0.028590477234904633,"category":"Other","tickerInSheet":false},{"issuer":"APPLIED MATLS INC","ticker":"AMAT","equity":566.311851,"calls":0,"puts":0,"total":566.311851,"rank":13,"pct":0.024788863762280504,"category":"Semis equipment","tickerInSheet":false},{"issuer":"CORPAY INC","ticker":"CPAY","equity":509.856965,"calls":0,"puts":0,"total":509.856965,"rank":14,"pct":0.022317694431640667,"category":"Other","tickerInSheet":false},{"issuer":"APPLOVIN CORP","ticker":"APP","equity":398,"calls":0,"puts":0,"total":398,"rank":15,"pct":0.017421439724360704,"category":"AI software / hyperscaler","tickerInSheet":false},{"issuer":"TAKE-TWO INTERACTIVE SOFTWAR","ticker":"TTWO","equity":395,"calls":0,"puts":0,"total":395,"rank":16,"pct":0.017290122339503715,"category":"Other","tickerInSheet":false},{"issuer":"APOLLO GLOBAL MGMT INC","ticker":"APO","equity":366.943274,"calls":0,"puts":0,"total":366.943274,"rank":17,"pct":0.016062010377514008,"category":"Other","tickerInSheet":false},{"issuer":"ZILLOW GROUP INC","ticker":"Z","equity":347.29975,"calls":0,"puts":0,"total":347.29975,"rank":18,"pct":0.015202164977162166,"category":"Other","tickerInSheet":false},{"issuer":"REDDIT INC","ticker":"RDDT","equity":336.625,"calls":0,"puts":0,"total":336.625,"rank":19,"pct":0.01473490489249478,"category":"Other","tickerInSheet":false},{"issuer":"BLOCK INC","ticker":"SQ","equity":240.72,"calls":0,"puts":0,"total":240.72,"rank":20,"pct":0.010536906960924897,"category":"Other","tickerInSheet":false},{"issuer":"NETFLIX INC.","ticker":"NFLX","equity":234.50985,"calls":0,"puts":0,"total":234.50985,"rank":21,"pct":0.010265073408401684,"category":"Other","tickerInSheet":false},{"issuer":"MERCADOLIBRE INC","ticker":"MELI","equity":233.428074,"calls":0,"puts":0,"total":233.428074,"rank":22,"pct":0.010217721409961333,"category":"Other","tickerInSheet":false},{"issuer":"LIBERTY MEDIA CORP DEL","ticker":"FWONK","equity":228.02364,"calls":0,"puts":0,"total":228.02364,"rank":23,"pct":0.00998115603012393,"category":"Other","tickerInSheet":false},{"issuer":"ZSCALER INC","ticker":"ZS","equity":221.625372,"calls":0,"puts":0,"total":221.625372,"rank":24,"pct":0.009701088089665875,"category":"Other","tickerInSheet":false},{"issuer":"CHIME FINL INC","ticker":"CHYM","equity":207.56174,"calls":0,"puts":0,"total":207.56174,"rank":25,"pct":0.009085488297722181,"category":"Other","tickerInSheet":false},{"issuer":"NU HLDGS LTD","ticker":"NU","equity":158.537818,"calls":0,"puts":0,"total":158.537818,"rank":26,"pct":0.006939590553564492,"category":"Other","tickerInSheet":false},{"issuer":"SERVICENOW INC","ticker":"NOW","equity":156.825,"calls":0,"puts":0,"total":156.825,"rank":27,"pct":0.006864616293399165,"category":"Other","tickerInSheet":false},{"issuer":"WEALTHFRONT CORP","ticker":"WLTH","equity":140.201112,"calls":0,"puts":0,"total":140.201112,"rank":28,"pct":0.006136947793960664,"category":"Other","tickerInSheet":false},{"issuer":"PROCORE TECHNOLOGIES INC","ticker":"PCOR","equity":133.3515,"calls":0,"puts":0,"total":133.3515,"rank":29,"pct":0.005837123415585644,"category":"Other","tickerInSheet":false},{"issuer":"LUMENTUM HLDGS INC","ticker":"LITE","equity":96.137568,"calls":0,"puts":0,"total":96.137568,"rank":30,"pct":0.00420817800542369,"category":"Optics & networking","tickerInSheet":false},{"issuer":"UNITEDHEALTH GROUP INC","ticker":"UNH","equity":94.826913,"calls":0,"puts":0,"total":94.826913,"rank":31,"pct":0.004150807409740443,"category":"Other","tickerInSheet":false},{"issuer":"EQUIPMENTSHARE COM INC","ticker":"EQS","equity":93.287389,"calls":0,"puts":0,"total":93.287389,"rank":32,"pct":0.004083418654538919,"category":"Other","tickerInSheet":false},{"issuer":"SHERWIN WILLIAMS CO","ticker":"SHW","equity":82.407956,"calls":0,"puts":0,"total":82.407956,"rank":33,"pct":0.0036071990911099726,"category":"Other","tickerInSheet":false},{"issuer":"INTEL CORP","ticker":"INTC","equity":72.315831,"calls":0,"puts":0,"total":72.315831,"rank":34,"pct":0.003165441936893355,"category":"Foundry & semis","tickerInSheet":false},{"issuer":"COSTAR GROUP INC","ticker":"CSGP","equity":60.51,"calls":0,"puts":0,"total":60.51,"rank":35,"pct":0.002648671652565493,"category":"Other","tickerInSheet":false},{"issuer":"ATRENEW INC","ticker":"RERE","equity":46.108412,"calls":0,"puts":0,"total":46.108412,"rank":36,"pct":0.002018278694582889,"category":"Other","tickerInSheet":false},{"issuer":"WEBULL CORP","ticker":"BULL","equity":32.275858,"calls":0,"puts":0,"total":32.275858,"rank":37,"pct":0.0014127937555251891,"category":"Other","tickerInSheet":false},{"issuer":"PONY AI INC","ticker":"PONY","equity":27.376,"calls":0,"puts":0,"total":27.376,"rank":38,"pct":0.001198314909281655,"category":"Other","tickerInSheet":false},{"issuer":"UBER TECHNOLOGIES INC","ticker":"UBER","equity":10.874234,"calls":0,"puts":0,"total":10.874234,"rank":39,"pct":0.00047599199040098945,"category":"Other","tickerInSheet":false},{"issuer":"ROBINHOOD VENTURES FD I","ticker":"RBNHV","equity":10.616,"calls":0,"puts":0,"total":10.616,"rank":40,"pct":0.00046468845254726945,"category":"Other","tickerInSheet":false},{"issuer":"JD.COM INC","ticker":"JD","equity":10.181217,"calls":0,"puts":0,"total":10.181217,"rank":41,"pct":0.0004456569303671772,"category":"Other","tickerInSheet":false},{"issuer":"PAYPAY CORP","ticker":"PAYPAY","equity":8.536,"calls":0,"puts":0,"total":8.536,"rank":42,"pct":0.0003736417323797562,"category":"Other","tickerInSheet":false},{"issuer":"FIGURE TECHNOLOGY SOLUTIO","ticker":"?FIGURETECHNO","equity":6.79,"calls":0,"puts":0,"total":6.79,"rank":43,"pct":0.0002972150143929879,"category":"Other","tickerInSheet":false},{"issuer":"NETSKOPE INC","ticker":"NTSK","equity":4.245,"calls":0,"puts":0,"total":4.245,"rank":44,"pct":0.0001858140995726412,"category":"Other","tickerInSheet":false},{"issuer":"XANADU QUANTUM TECHNOLO LTD","ticker":"XANADU","equity":3.83,"calls":0,"puts":0,"total":3.83,"rank":45,"pct":0.00016764852800075754,"category":"Other","tickerInSheet":false},{"issuer":"DOORDASH INC","ticker":"DASH","equity":3.804351,"calls":0,"puts":0,"total":3.804351,"rank":46,"pct":0.0001665258081326919,"category":"Other","tickerInSheet":false},{"issuer":"BULLISH","ticker":"BLSH","equity":3.573,"calls":0,"puts":0,"total":3.573,"rank":47,"pct":0.00015639900536467538,"category":"Other","tickerInSheet":false},{"issuer":"ETORO GROUP LTD","ticker":"ETOR","equity":2.4024,"calls":0,"puts":0,"total":2.4024,"rank":48,"pct":0.00010515896179347779,"category":"Other","tickerInSheet":false},{"issuer":"KLARNA GROUP PLC","ticker":"KLAR","equity":2.29075,"calls":0,"puts":0,"total":2.29075,"rank":49,"pct":0.0001002717664537168,"category":"Other","tickerInSheet":false},{"issuer":"FIGMA INC","ticker":"FIG","equity":1.2684,"calls":0,"puts":0,"total":1.2684,"rank":50,"pct":0.00005552099031753547,"category":"Other","tickerInSheet":false},{"issuer":"ACCELERANT HOLDINGS","ticker":"ARX","equity":1.002,"calls":0,"puts":0,"total":1.002,"rank":51,"pct":0.00004386000654223474,"category":"Other","tickerInSheet":false},{"issuer":"GEMINI SPACE STA INC","ticker":"GEMI","equity":0.3094,"calls":0,"puts":0,"total":0.3094,"rank":52,"pct":0.000013543199624917593,"category":"Other","tickerInSheet":false},{"issuer":"MNTN INC","ticker":"MNTN","equity":0.176,"calls":0,"puts":0,"total":0.176,"rank":53,"pct":0.000007703953244943427,"category":"Other","tickerInSheet":false}],"hasHoldings":true,"periodOfReport":"2026-03-31","sourceTag":"edgar"},{"name":"Whale Rock Capital Management","shortLabel":"Whale Rock","manager":"Alex Sacerdote","cik":"0001387322","filesOwn13F":true,"totalBn":7.74227293,"numIssuers":35,"equityPct":0.9999999999999999,"callsPct":0,"putsPct":0,"optionsHeavy":false,"top10Concentration":0.5140424052449414,"filingDate":"2026-05-15","thesis":"TMT specialist long/short. S-curve framework. Celestica (server ODM) is a unique AI-server play","rank":8,"isReference":false,"holdings":[{"issuer":"ALPHABET INC","ticker":"GOOGL","equity":768.308847,"calls":0,"puts":0,"total":768.308847,"rank":1,"pct":0.09923556737749879,"category":"AI software / hyperscaler","tickerInSheet":false},{"issuer":"SANDISK CORP","ticker":"SNDK","equity":508.009605,"calls":0,"puts":0,"total":508.009605,"rank":2,"pct":0.06561504736310039,"category":"Memory & storage","tickerInSheet":false},{"issuer":"CELESTICA INC","ticker":"CLS","equity":427.646858,"calls":0,"puts":0,"total":427.646858,"rank":3,"pct":0.055235311628312744,"category":"Other","tickerInSheet":false},{"issuer":"AMAZON COM INC","ticker":"AMZN","equity":378.934561,"calls":0,"puts":0,"total":378.934561,"rank":4,"pct":0.04894358083550537,"category":"AI software / hyperscaler","tickerInSheet":false},{"issuer":"TTM TECHNOLOGIES INC","ticker":"TTMI","equity":342.388435,"calls":0,"puts":0,"total":342.388435,"rank":5,"pct":0.044223245304786746,"category":"Other","tickerInSheet":false},{"issuer":"ADVANCED ENERGY INDS","ticker":"AEIS","equity":329.845764,"calls":0,"puts":0,"total":329.845764,"rank":6,"pct":0.042603220912285765,"category":"Other","tickerInSheet":false},{"issuer":"FABRINET","ticker":"FN","equity":318.787444,"calls":0,"puts":0,"total":318.787444,"rank":7,"pct":0.041174916834144724,"category":"Other","tickerInSheet":false},{"issuer":"CORNING INC","ticker":"GLW","equity":312.380741,"calls":0,"puts":0,"total":312.380741,"rank":8,"pct":0.04034742043122471,"category":"Other","tickerInSheet":false},{"issuer":"MKS INC.","ticker":"MKSI","equity":300.298242,"calls":0,"puts":0,"total":300.298242,"rank":9,"pct":0.03878683233141976,"category":"Other","tickerInSheet":false},{"issuer":"META PLATFORMS INC","ticker":"META","equity":293.256102,"calls":0,"puts":0,"total":293.256102,"rank":10,"pct":0.03787726222666242,"category":"AI software / hyperscaler","tickerInSheet":false},{"issuer":"JFROG LTD","ticker":"FROG","equity":282.508885,"calls":0,"puts":0,"total":282.508885,"rank":11,"pct":0.03648914053460009,"category":"Other","tickerInSheet":false},{"issuer":"TAIWAN SEMICONDUCTOR MANUFAC","ticker":"TSM","equity":276.931438,"calls":0,"puts":0,"total":276.931438,"rank":12,"pct":0.035768751696538294,"category":"Foundry & semis","tickerInSheet":false},{"issuer":"APPLOVIN CORP","ticker":"APP","equity":276.823726,"calls":0,"puts":0,"total":276.823726,"rank":13,"pct":0.035754839502926176,"category":"AI software / hyperscaler","tickerInSheet":false},{"issuer":"CARVANA CO","ticker":"CVNA","equity":275.885427,"calls":0,"puts":0,"total":275.885427,"rank":14,"pct":0.03563364783111566,"category":"Other","tickerInSheet":false},{"issuer":"MACOM TECH SOLUTIONS HLDGS I","ticker":"?MACOMTECHSOL","equity":260.930251,"calls":0,"puts":0,"total":260.930251,"rank":15,"pct":0.03370202179116411,"category":"Other","tickerInSheet":false},{"issuer":"COHERENT CORP","ticker":"COHR","equity":232.266184,"calls":0,"puts":0,"total":232.266184,"rank":16,"pct":0.02999974117419805,"category":"Optics & networking","tickerInSheet":false},{"issuer":"BROADCOM INC","ticker":"AVGO","equity":228.15282,"calls":0,"puts":0,"total":228.15282,"rank":17,"pct":0.029468454814599258,"category":"GPU & AI compute","tickerInSheet":false},{"issuer":"BLOOM ENERGY CORP","ticker":"BE","equity":224.071736,"calls":0,"puts":0,"total":224.071736,"rank":18,"pct":0.028941337773273255,"category":"Power & energy (data center)","tickerInSheet":false},{"issuer":"LAM RESEARCH CORP","ticker":"LRCX","equity":204.66,"calls":0,"puts":0,"total":204.66,"rank":19,"pct":0.026434097822485316,"category":"Semis equipment","tickerInSheet":false},{"issuer":"ROBLOX CORP","ticker":"RBLX","equity":199.780327,"calls":0,"puts":0,"total":199.780327,"rank":20,"pct":0.025803834197821285,"category":"Other","tickerInSheet":false},{"issuer":"SITIME CORP","ticker":"SITM","equity":199.243812,"calls":0,"puts":0,"total":199.243812,"rank":21,"pct":0.025734537364081274,"category":"Other","tickerInSheet":false},{"issuer":"TOWER SEMICONDUCTOR LTD","ticker":"TSEM","equity":187.191009,"calls":0,"puts":0,"total":187.191009,"rank":22,"pct":0.024177784830429636,"category":"Foundry & semis","tickerInSheet":false},{"issuer":"NVIDIA CORPORATION","ticker":"NVDA","equity":181.572723,"calls":0,"puts":0,"total":181.572723,"rank":23,"pct":0.023452121184779778,"category":"GPU & AI compute","tickerInSheet":false},{"issuer":"KLAVIYO INC","ticker":"KVYO","equity":132.818509,"calls":0,"puts":0,"total":132.818509,"rank":24,"pct":0.017154976348786505,"category":"Other","tickerInSheet":false},{"issuer":"VIAVI SOLUTIONS INC","ticker":"VIAV","equity":115.586499,"calls":0,"puts":0,"total":115.586499,"rank":25,"pct":0.014929272068428619,"category":"Other","tickerInSheet":false},{"issuer":"WESTERN DIGITAL CORP","ticker":"WDC","equity":111.443503,"calls":0,"puts":0,"total":111.443503,"rank":26,"pct":0.014394158408982878,"category":"Memory & storage","tickerInSheet":false},{"issuer":"CIENA CORP","ticker":"CIEN","equity":89.784787,"calls":0,"puts":0,"total":89.784787,"rank":27,"pct":0.011596696191385751,"category":"Optics & networking","tickerInSheet":false},{"issuer":"ARM HOLDINGS PLC","ticker":"ARM","equity":68.436652,"calls":0,"puts":0,"total":68.436652,"rank":28,"pct":0.008839348937806045,"category":"Foundry & semis","tickerInSheet":false},{"issuer":"MONGODB INC","ticker":"MDB","equity":54.987091,"calls":0,"puts":0,"total":54.987091,"rank":29,"pct":0.007102189692504163,"category":"Other","tickerInSheet":false},{"issuer":"DUOLINGO INC","ticker":"DUOL","equity":46.501777,"calls":0,"puts":0,"total":46.501777,"rank":30,"pct":0.006006217737405442,"category":"Other","tickerInSheet":false},{"issuer":"IMPINJ INC","ticker":"PI","equity":41.618559,"calls":0,"puts":0,"total":41.618559,"rank":31,"pct":0.005375496236865419,"category":"Other","tickerInSheet":false},{"issuer":"APPLE INC","ticker":"AAPL","equity":24.519413,"calls":0,"puts":0,"total":24.519413,"rank":32,"pct":0.0031669528085210502,"category":"AI software / hyperscaler","tickerInSheet":false},{"issuer":"MICROSOFT CORP","ticker":"MSFT","equity":19.933655,"calls":0,"puts":0,"total":19.933655,"rank":33,"pct":0.002574651550032608,"category":"AI software / hyperscaler","tickerInSheet":false},{"issuer":"ADVANCED MICRO DEVICES INC","ticker":"AMD","equity":14.079594,"calls":0,"puts":0,"total":14.079594,"rank":34,"pct":0.0018185349608955208,"category":"GPU & AI compute","tickerInSheet":false},{"issuer":"NETFLIX INC.","ticker":"NFLX","equity":12.687954,"calls":0,"puts":0,"total":12.687954,"rank":35,"pct":0.0016387892954323943,"category":"Other","tickerInSheet":false}],"hasHoldings":true,"periodOfReport":"2026-03-31","sourceTag":"edgar"},{"name":"Lone Pine Capital","shortLabel":"Lone Pine","manager":"Stephen Mandel","cik":"0001061165","filesOwn13F":true,"totalBn":12.543849391,"numIssuers":36,"equityPct":1.0000000000000002,"callsPct":0,"putsPct":0,"optionsHeavy":false,"top10Concentration":0.5157787503923642,"filingDate":"2026-05-15","thesis":"Tiger Cub long/short. Q4 added ASML, DASH, MDLN. TSM + Vistra are SA-aligned","rank":9,"isReference":false,"holdings":[{"issuer":"VISTRA CORP","ticker":"VST","equity":930.179653,"calls":0,"puts":0,"total":930.179653,"rank":1,"pct":0.0741542427691605,"category":"Power & energy (data center)","tickerInSheet":false},{"issuer":"ASML HLDG NV","ticker":"ASML","equity":865.339133,"calls":0,"puts":0,"total":865.339133,"rank":2,"pct":0.06898513415035629,"category":"Semis equipment","tickerInSheet":false},{"issuer":"CARPENTER TECHNOLOGY CORP","ticker":"CRS","equity":716.541051,"calls":0,"puts":0,"total":716.541051,"rank":3,"pct":0.05712289973077213,"category":"Other","tickerInSheet":false},{"issuer":"LPL FINL HLDGS INC","ticker":"LPLA","equity":616.691573,"calls":0,"puts":0,"total":616.691573,"rank":4,"pct":0.04916286490512759,"category":"Other","tickerInSheet":false},{"issuer":"APPLOVIN CORP","ticker":"APP","equity":583.039354,"calls":0,"puts":0,"total":583.039354,"rank":5,"pct":0.04648009839932556,"category":"AI software / hyperscaler","tickerInSheet":false},{"issuer":"TALEN ENERGY CORP","ticker":"TLN","equity":580.343221,"calls":0,"puts":0,"total":580.343221,"rank":6,"pct":0.0462651617466315,"category":"Other","tickerInSheet":false},{"issuer":"TERADYNE INC","ticker":"?TERADYNEINC","equity":555.232819,"calls":0,"puts":0,"total":555.232819,"rank":7,"pct":0.044263351838261876,"category":"Other","tickerInSheet":false},{"issuer":"CARVANA CO","ticker":"CVNA","equity":551.645415,"calls":0,"puts":0,"total":551.645415,"rank":8,"pct":0.04397736275403596,"category":"Other","tickerInSheet":false},{"issuer":"NU HLDGS LTD","ticker":"NU","equity":546.221303,"calls":0,"puts":0,"total":546.221303,"rank":9,"pct":0.0435449506745437,"category":"Other","tickerInSheet":false},{"issuer":"MEDLINE INC","ticker":"MDLN","equity":524.617442,"calls":0,"puts":0,"total":524.617442,"rank":10,"pct":0.04182268342414922,"category":"Other","tickerInSheet":false},{"issuer":"CORNING INC","ticker":"GLW","equity":505.556448,"calls":0,"puts":0,"total":505.556448,"rank":11,"pct":0.04030313440806522,"category":"Other","tickerInSheet":false},{"issuer":"CLEAN HARBORS INC","ticker":"CLH","equity":503.196814,"calls":0,"puts":0,"total":503.196814,"rank":12,"pct":0.04011502357171438,"category":"Other","tickerInSheet":false},{"issuer":"MASTEC INC","ticker":"MTZ","equity":492.600027,"calls":0,"puts":0,"total":492.600027,"rank":13,"pct":0.039270244057094006,"category":"Other","tickerInSheet":false},{"issuer":"TAIWAN SEMICONDUCTOR MANUFAC","ticker":"TSM","equity":469.591664,"calls":0,"puts":0,"total":469.591664,"rank":14,"pct":0.0374360094228271,"category":"Foundry & semis","tickerInSheet":false},{"issuer":"BROOKFIELD CORP","ticker":"BN","equity":453.626975,"calls":0,"puts":0,"total":453.626975,"rank":15,"pct":0.03616329890930209,"category":"Other","tickerInSheet":false},{"issuer":"TENET HEALTHCARE CORP","ticker":"THC","equity":426.242485,"calls":0,"puts":0,"total":426.242485,"rank":16,"pct":0.03398019792120765,"category":"Other","tickerInSheet":false},{"issuer":"CAPITAL ONE FINL CORP","ticker":"COF","equity":413.579026,"calls":0,"puts":0,"total":413.579026,"rank":17,"pct":0.032970662601923134,"category":"Other","tickerInSheet":false},{"issuer":"ENTEGRIS INC","ticker":"ENTG","equity":365.208931,"calls":0,"puts":0,"total":365.208931,"rank":18,"pct":0.029114581944999374,"category":"Other","tickerInSheet":false},{"issuer":"US FOODS HLDG CORP","ticker":"?USFOODSHLDGC","equity":350.028976,"calls":0,"puts":0,"total":350.028976,"rank":19,"pct":0.02790443069662012,"category":"Other","tickerInSheet":false},{"issuer":"PERFORMANCE FOOD GROUP CO","ticker":"?PERFORMANCEF","equity":340.769014,"calls":0,"puts":0,"total":340.769014,"rank":20,"pct":0.027166223332089432,"category":"Other","tickerInSheet":false},{"issuer":"MCKESSON CORP","ticker":"?MCKESSONCORP","equity":339.414961,"calls":0,"puts":0,"total":339.414961,"rank":21,"pct":0.02705827775989757,"category":"Other","tickerInSheet":false},{"issuer":"CIENA CORP","ticker":"CIEN","equity":314.280726,"calls":0,"puts":0,"total":314.280726,"rank":22,"pct":0.02505456787654762,"category":"Optics & networking","tickerInSheet":false},{"issuer":"TERAWULF INC","ticker":"?TERAWULFINC","equity":287.466235,"calls":0,"puts":0,"total":287.466235,"rank":23,"pct":0.02291690740533382,"category":"Other","tickerInSheet":false},{"issuer":"HUT 8 CORP","ticker":"HUT","equity":285.163591,"calls":0,"puts":0,"total":285.163591,"rank":24,"pct":0.022733339831439627,"category":"BTC miners pivoting to AI","tickerInSheet":false},{"issuer":"ARGAN INC","ticker":"AGX","equity":214.120433,"calls":0,"puts":0,"total":214.120433,"rank":25,"pct":0.01706975477189863,"category":"Other","tickerInSheet":false},{"issuer":"ALPHABET INC","ticker":"GOOGL","equity":53.935041,"calls":0,"puts":0,"total":53.935041,"rank":26,"pct":0.004299720071471639,"category":"AI software / hyperscaler","tickerInSheet":false},{"issuer":"TRANSDIGM GROUP INC","ticker":"TDG","equity":41.348216,"calls":0,"puts":0,"total":41.348216,"rank":27,"pct":0.0032962940410992693,"category":"Other","tickerInSheet":false},{"issuer":"VULCAN MATLS CO","ticker":"VMC","equity":39.259942,"calls":0,"puts":0,"total":39.259942,"rank":28,"pct":0.003129816117544296,"category":"Other","tickerInSheet":false},{"issuer":"SPOTIFY TECHNOLOGY S A","ticker":"SPOT","equity":33.383144,"calls":0,"puts":0,"total":33.383144,"rank":29,"pct":0.0026613157539942915,"category":"Other","tickerInSheet":false},{"issuer":"MASTERCARD INCORPORATED","ticker":"MA","equity":28.581052,"calls":0,"puts":0,"total":28.581052,"rank":30,"pct":0.0022784913234454507,"category":"Other","tickerInSheet":false},{"issuer":"AMPHENOL CORP","ticker":"APH","equity":28.186663,"calls":0,"puts":0,"total":28.186663,"rank":31,"pct":0.0022470504963351566,"category":"Other","tickerInSheet":false},{"issuer":"VISA INC","ticker":"V","equity":28.040316,"calls":0,"puts":0,"total":28.040316,"rank":32,"pct":0.0022353836630180247,"category":"Other","tickerInSheet":false},{"issuer":"HILTON WORLDWIDE HLDGS INC","ticker":"HLT","equity":27.138836,"calls":0,"puts":0,"total":27.138836,"rank":33,"pct":0.002163517366484937,"category":"Other","tickerInSheet":false},{"issuer":"KKR & CO INC","ticker":"KKR","equity":16.58599,"calls":0,"puts":0,"total":16.58599,"rank":34,"pct":0.0013222408435404338,"category":"Other","tickerInSheet":false},{"issuer":"BOOKING HOLDINGS INC","ticker":"BKNG","equity":10.12582,"calls":0,"puts":0,"total":10.12582,"rank":35,"pct":0.00080723386293725,"category":"Other","tickerInSheet":false},{"issuer":"BOSTON SCIENTIFIC CORP","ticker":"BSX","equity":6.567101,"calls":0,"puts":0,"total":6.567101,"rank":36,"pct":0.0005235315568051849,"category":"Other","tickerInSheet":false}],"hasHoldings":true,"periodOfReport":"2026-03-31","sourceTag":"edgar"}],"caveats":["13F shows US-listed longs only — no shorts, no foreign listings (SK Hynix, Samsung, Kioxia not visible), no privates.","Options reported at underlying notional, not premium paid — so options-heavy funds (SA, VARA) have inflated 13F totals vs. capital deployed.","Whale Rock AI Fund and Point72 Turion don't file standalone 13Fs — they roll up into parent filings."],"asOfByFund":{"Situational Awareness":"2025-12-31","VARA":"2025-12-31","Light Street":"2026-03-31","Coatue":"2026-03-31","Altimeter":"2026-03-31","Tiger Global":"2026-03-31","Whale Rock":"2026-03-31","Lone Pine":"2026-03-31"}}</script>
+
+<!-- Drawer -->
+<div class="drawer-overlay" id="drawerOverlay"></div>
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <div class="drawer-header">
+    <div>
+      <div id="drawerTitle" style="font-family: var(--font-mono); font-size: 18px; color: var(--accent); font-weight: 600"></div>
+      <div id="drawerSub" style="font-size: 11px; color: var(--text-dim); margin-top: 2px"></div>
+    </div>
+    <button class="drawer-close" id="drawerClose" aria-label="Close">×</button>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+</aside>
+
+<script>
+'use strict';
+
+// ============================================================================
+// State
+// ============================================================================
+const STATE = {
+  data: null,
+  route: parseRoute(location.hash),
+  filterCategory: null,
+  compareSelection: new Set(),
+  edgarResults: null,
+  fundViewMode: 'all', // all | top10 | byCategory
+  // Per-table sort state for the compare view: { common: {col, dir}, divergent: {...} }
+  compareSort: { common: null, divergent: null },
+};
+
+function parseRoute(hash) {
+  hash = hash || '#/dashboard';
+  const parts = hash.replace(/^#\//, '').split('/');
+  return { name: parts[0] || 'dashboard', arg: parts[1] || null };
+}
+
+window.addEventListener('hashchange', () => {
+  STATE.route = parseRoute(location.hash);
+  render();
+});
+
+// ============================================================================
+// Boot
+// ============================================================================
+async function boot() {
+  // 1) Prefer inline-baked data (works via file:// and Vercel alike).
+  const baked = document.getElementById('bakedData');
+  if (baked && baked.textContent && baked.textContent.trim() && !baked.textContent.includes('__BAKED_DATA__')) {
+    try { STATE.data = JSON.parse(baked.textContent); } catch (e) {}
+  }
+  // 2) Otherwise fetch data.json (works via any http(s):// host).
+  if (!STATE.data) {
+    try {
+      const r = await fetch('data.json?v=' + Date.now());
+      STATE.data = await r.json();
+    } catch (e) {
+      document.getElementById('main').innerHTML =
+        '<div class="empty">Could not load data. Run <code>python3 scripts/build_data.py</code> to regenerate, then refresh.</div>';
+      return;
+    }
+  }
+
+  document.getElementById('asOfLabel').textContent = '· ' + STATE.data.asOf;
+  renderCaveats();
+  renderSearchIndex();
+  setupEvents();
+  render();
+}
+
+document.addEventListener('DOMContentLoaded', boot);
+
+// ============================================================================
+// Helpers
+// ============================================================================
+const COLORS = {}; // populated from data on boot
+function catColor(c) {
+  if (Object.keys(COLORS).length === 0 && STATE.data) Object.assign(COLORS, STATE.data.categoryColors);
+  return COLORS[c] || '#5a5a5a';
+}
+
+function fmtPct(p, decimals = 1) {
+  if (p === null || p === undefined || isNaN(p)) return '—';
+  return (p * 100).toFixed(decimals) + '%';
+}
+function fmtDollarsM(m, decimals = 1) {
+  if (m === null || m === undefined || isNaN(m)) return '—';
+  if (m >= 1000) return '$' + (m / 1000).toFixed(decimals) + 'B';
+  if (m === 0) return '$0';
+  return '$' + m.toFixed(decimals) + 'M';
+}
+function fmtDollarsB(b, decimals = 2) {
+  if (b === null || b === undefined || isNaN(b)) return '—';
+  return '$' + b.toFixed(decimals) + 'B';
+}
+function fundsWithHoldings() { return STATE.data.funds.filter(f => f.hasHoldings); }
+function findFund(nameOrShort) {
+  return STATE.data.funds.find(f => f.name === nameOrShort || f.shortLabel === nameOrShort);
+}
+function median(arr) {
+  if (!arr.length) return 0;
+  const s = [...arr].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
+// Build ticker index: { ticker -> [{fund, holding}] }
+let TICKER_INDEX = null;
+function buildTickerIndex() {
+  if (TICKER_INDEX) return TICKER_INDEX;
+  TICKER_INDEX = new Map();
+  for (const f of fundsWithHoldings()) {
+    for (const h of f.holdings) {
+      if (!TICKER_INDEX.has(h.ticker)) TICKER_INDEX.set(h.ticker, []);
+      TICKER_INDEX.get(h.ticker).push({ fund: f, holding: h });
+    }
+  }
+  return TICKER_INDEX;
+}
+
+// ============================================================================
+// Router / render
+// ============================================================================
+function render() {
+  // Highlight active tab
+  document.querySelectorAll('nav.tabs a').forEach(a => {
+    const r = a.dataset.route.replace(/^#\//, '').split('/')[0];
+    a.classList.toggle('active', r === STATE.route.name);
+  });
+  const main = document.getElementById('main');
+  main.innerHTML = '';
+  if (STATE.route.name === 'dashboard') renderDashboard(main);
+  else if (STATE.route.name === 'funds') renderFundList(main);
+  else if (STATE.route.name === 'fund') renderFundView(main, decodeURIComponent(STATE.route.arg || ''));
+  else if (STATE.route.name === 'compare') renderCompare(main);
+  else if (STATE.route.name === 'conviction') renderConviction(main);
+  else renderDashboard(main);
+}
+
+// ============================================================================
+// Dashboard
+// ============================================================================
+function renderDashboard(root) {
+  const data = STATE.data;
+  const funds = fundsWithHoldings();
+
+  // Category filter
+  const catFilter = document.createElement('div');
+  catFilter.className = 'category-filter';
+  const allChip = document.createElement('span');
+  allChip.className = 'cat-chip' + (STATE.filterCategory === null ? ' active' : '');
+  allChip.textContent = 'All';
+  allChip.onclick = () => { STATE.filterCategory = null; render(); };
+  catFilter.appendChild(allChip);
+  for (const c of data.categories) {
+    const chip = document.createElement('span');
+    chip.className = 'cat-chip' + (STATE.filterCategory === c ? ' active' : '');
+    chip.innerHTML = `<span class="swatch" style="background:${catColor(c)}"></span>${c}`;
+    chip.onclick = () => { STATE.filterCategory = (STATE.filterCategory === c) ? null : c; render(); };
+    catFilter.appendChild(chip);
+  }
+  root.appendChild(catFilter);
+
+  // EDGAR status panel (if results exist)
+  if (STATE.edgarResults) {
+    root.appendChild(renderEdgarStatus());
+  }
+
+  // Top names table
+  root.appendChild(renderTopNamesCard());
+
+  // Two-column: high-conviction + outsize bets
+  const cols = document.createElement('div');
+  cols.className = 'grid-2';
+  cols.appendChild(renderHighConvictionCard());
+  cols.appendChild(renderOutsizeBetsCard());
+  root.appendChild(cols);
+
+  // Fund snapshot grid
+  root.appendChild(renderFundSnapshot());
+}
+
+// "Top names across all funds"
+function renderTopNamesCard() {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `<div class="card-header"><h2>Top names across all funds</h2>
+    <div class="right">Ranked by (# of funds holding) × (median % allocation when held)</div></div>`;
+
+  const idx = buildTickerIndex();
+  const rows = [];
+  for (const [ticker, list] of idx.entries()) {
+    const cat = list[0].holding.category;
+    if (STATE.filterCategory && cat !== STATE.filterCategory) continue;
+    const pcts = list.map(x => x.holding.pct);
+    const med = median(pcts);
+    const maxObj = list.reduce((a, b) => b.holding.pct > a.holding.pct ? b : a);
+    rows.push({
+      ticker,
+      issuer: list[0].holding.issuer,
+      category: cat,
+      numFunds: list.length,
+      medianPct: med,
+      maxPct: maxObj.holding.pct,
+      maxFund: maxObj.fund.shortLabel,
+      score: list.length * med,
+    });
+  }
+  rows.sort((a, b) => b.score - a.score);
+  const top = rows.slice(0, 30);
+
+  const tableHtml = `
+    <table>
+      <thead><tr>
+        <th>Ticker</th>
+        <th>Category</th>
+        <th class="num"># Funds</th>
+        <th class="num">Median %</th>
+        <th class="num">Max %</th>
+        <th>Max holder</th>
+      </tr></thead>
+      <tbody>
+      ${top.map(r => `
+        <tr data-ticker="${r.ticker}">
+          <td><span class="ticker">${r.ticker}</span></td>
+          <td><span class="cat-chip"><span class="swatch" style="background:${catColor(r.category)}"></span>${r.category}</span></td>
+          <td class="num">${r.numFunds}</td>
+          <td class="num">${fmtPct(r.medianPct)}</td>
+          <td class="num">${fmtPct(r.maxPct)}</td>
+          <td data-fund="${escapeAttr(r.maxFund)}" style="color:var(--text-dim); cursor:pointer">${r.maxFund}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+  const wrap = document.createElement('div');
+  wrap.innerHTML = tableHtml;
+  card.appendChild(wrap);
+
+  // Wire row click → ticker drawer
+  wrap.querySelectorAll('tbody tr').forEach(tr => {
+    tr.addEventListener('click', e => {
+      const fundCell = e.target.closest('td[data-fund]');
+      if (fundCell) { e.stopPropagation(); navigateToFund(fundCell.dataset.fund); return; }
+      openTickerDrawer(tr.dataset.ticker);
+    });
+  });
+
+  return card;
+}
+
+// "High-conviction positions"
+function renderHighConvictionCard() {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `<div class="card-header"><h2>High-conviction positions</h2>
+    <div class="right">> 5% of 13F OR options notional > 50% of position</div></div>`;
+
+  const byFund = {};
+  for (const f of fundsWithHoldings()) {
+    const matches = [];
+    for (const h of f.holdings) {
+      if (STATE.filterCategory && h.category !== STATE.filterCategory) continue;
+      const optShare = h.total > 0 ? (h.calls + h.puts) / h.total : 0;
+      if (h.pct > 0.05 || optShare > 0.5) {
+        matches.push({ ...h, optShare, reason: h.pct > 0.05 ? 'size' : 'leverage' });
+      }
+    }
+    if (matches.length) byFund[f.shortLabel] = matches;
+  }
+
+  let html = '';
+  for (const fund of Object.keys(byFund)) {
+    const isSA = fund === 'Situational Awareness';
+    html += `<div class="section">
+      <div class="section-title">
+        <span class="ticker" data-fund="${escapeAttr(fund)}" style="cursor:pointer">${fund}</span>
+        ${isSA ? '<span class="badge sa">REF</span>' : ''}
+      </div>
+      <table>
+        <thead><tr><th>Ticker</th><th>Category</th><th class="num">% of 13F</th><th class="num">Opt %</th><th>Tag</th></tr></thead>
+        <tbody>
+        ${byFund[fund].sort((a,b)=>b.pct-a.pct).map(h => `
+          <tr data-ticker="${h.ticker}">
+            <td><span class="ticker">${h.ticker}</span>${h.calls > 0 ? '<span class="badge calls">C</span>' : ''}${h.puts > 0 ? '<span class="badge puts">P</span>' : ''}</td>
+            <td><span class="cat-chip"><span class="swatch" style="background:${catColor(h.category)}"></span>${h.category}</span></td>
+            <td class="num">${fmtPct(h.pct)}</td>
+            <td class="num">${fmtPct(h.optShare)}</td>
+            <td>${h.reason === 'size' ? '<span class="badge high">SIZE</span>' : '<span class="badge calls">LEV</span>'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  }
+  if (!html) html = '<div class="empty">No high-conviction positions match the current filter.</div>';
+  const wrap = document.createElement('div');
+  wrap.innerHTML = html;
+  card.appendChild(wrap);
+
+  wrap.querySelectorAll('tbody tr').forEach(tr => tr.addEventListener('click', () => openTickerDrawer(tr.dataset.ticker)));
+  wrap.querySelectorAll('[data-fund]').forEach(el => el.addEventListener('click', () => navigateToFund(el.dataset.fund)));
+  return card;
+}
+
+// "Outsize bets"
+function renderOutsizeBetsCard() {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `<div class="card-header"><h2>Outsize bets</h2>
+    <div class="right">Allocations > 2× the median across ≥2-fund holders</div></div>`;
+
+  const idx = buildTickerIndex();
+  const flags = [];
+  for (const [ticker, list] of idx.entries()) {
+    if (list.length < 2) continue;
+    const cat = list[0].holding.category;
+    if (STATE.filterCategory && cat !== STATE.filterCategory) continue;
+    const pcts = list.map(x => x.holding.pct);
+    const med = median(pcts);
+    if (med <= 0) continue;
+    for (const item of list) {
+      const ratio = item.holding.pct / med;
+      if (ratio > 2.0) {
+        flags.push({
+          ticker, category: cat,
+          fund: item.fund.shortLabel,
+          pct: item.holding.pct,
+          medianPct: med,
+          ratio,
+        });
+      }
+    }
+  }
+  flags.sort((a, b) => b.ratio - a.ratio);
+
+  let html = '';
+  if (!flags.length) {
+    html = '<div class="empty">No outsize bets match the current filter.</div>';
+  } else {
+    html = `<table>
+      <thead><tr><th>Ticker</th><th>Fund</th><th class="num">Their %</th><th class="num">Median %</th><th class="num">Ratio</th></tr></thead>
+      <tbody>
+      ${flags.slice(0, 25).map(r => `
+        <tr data-ticker="${r.ticker}">
+          <td><span class="ticker">${r.ticker}</span></td>
+          <td data-fund="${escapeAttr(r.fund)}" style="cursor:pointer">${r.fund}</td>
+          <td class="num">${fmtPct(r.pct)}</td>
+          <td class="num">${fmtPct(r.medianPct)}</td>
+          <td class="num" style="color:${r.ratio > 4 ? 'var(--puts)' : 'var(--sa)'}">${r.ratio.toFixed(1)}×</td>
+        </tr>`).join('')}
+      </tbody></table>`;
+  }
+  const wrap = document.createElement('div');
+  wrap.innerHTML = html;
+  card.appendChild(wrap);
+
+  wrap.querySelectorAll('tbody tr').forEach(tr => tr.addEventListener('click', e => {
+    const fundCell = e.target.closest('td[data-fund]');
+    if (fundCell) { e.stopPropagation(); navigateToFund(fundCell.dataset.fund); return; }
+    openTickerDrawer(tr.dataset.ticker);
+  }));
+  return card;
+}
+
+// Fund snapshot grid
+function renderFundSnapshot() {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `<div class="card-header"><h2>Funds</h2>
+    <div class="right">${fundsWithHoldings().length} filers · ${STATE.data.funds.length - fundsWithHoldings().length} non-filers</div></div>`;
+  const grid = document.createElement('div');
+  grid.className = 'fund-card-list';
+  for (const f of STATE.data.funds) {
+    const c = document.createElement('div');
+    c.className = 'fund-card' + (f.isReference ? ' sa' : '');
+    if (!f.hasHoldings) {
+      c.innerHTML = `
+        <h4>${f.name} ${f.isReference ? '<span class="badge sa">REF</span>' : ''}</h4>
+        <div class="manager">${f.manager}</div>
+        <div style="font-size: 11px; color: var(--text-faint); padding: 6px 0">No standalone 13F filing.</div>
+        <div style="font-size: 11px; color: var(--text-dim); margin-top:4px">${f.thesis || ''}</div>`;
+      grid.appendChild(c);
+      continue;
+    }
+    const eq = f.equityPct || 0, ca = f.callsPct || 0, pu = f.putsPct || 0;
+    const period = f.periodOfReport || STATE.data.asOf;
+    const isFresh = period > STATE.data.asOf;
+    c.innerHTML = `
+      <h4>${f.shortLabel} ${f.isReference ? '<span class="badge sa">REF</span>' : ''}${f.optionsHeavy ? '<span class="badge calls">OPT-HEAVY</span>' : ''}${isFresh ? '<span class="badge new" title="Refreshed from SEC EDGAR">Q1 26</span>' : ''}</h4>
+      <div class="manager">${f.manager} <span style="color:var(--text-faint)">· ${period}</span></div>
+      <div class="meta">
+        <div>13F <span class="v">${fmtDollarsB(f.totalBn)}</span></div>
+        <div># issuers <span class="v">${f.numIssuers}</span></div>
+        <div>Top 10 <span class="v">${fmtPct(f.top10Concentration, 0)}</span></div>
+      </div>
+      <div class="stacked-bar" title="Equity ${fmtPct(eq,0)} · Calls ${fmtPct(ca,0)} · Puts ${fmtPct(pu,0)}">
+        <div class="seg eq" style="width:${(eq*100).toFixed(1)}%"></div>
+        <div class="seg calls" style="width:${(ca*100).toFixed(1)}%"></div>
+        <div class="seg puts" style="width:${(pu*100).toFixed(1)}%"></div>
+      </div>`;
+    c.onclick = () => navigateToFund(f.shortLabel);
+    grid.appendChild(c);
+  }
+  card.appendChild(grid);
+  return card;
+}
+
+// ============================================================================
+// Fund list (separate route)
+// ============================================================================
+function renderFundList(root) {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `<h2>All funds</h2>`;
+  card.appendChild(renderFundSnapshot().firstElementChild ? renderFundSnapshot() : document.createElement('div'));
+  // Just render the snapshot directly
+  root.appendChild(renderFundSnapshot());
+}
+
+// ============================================================================
+// Single fund view
+// ============================================================================
+function renderFundView(root, fundName) {
+  const fund = findFund(fundName);
+  if (!fund) {
+    root.innerHTML = `<div class="empty">Fund not found: ${escapeHtml(fundName)}. <a href="#/dashboard">Back to dashboard</a></div>`;
+    return;
+  }
+  if (!fund.hasHoldings) {
+    root.innerHTML = `
+      <div class="card"><h2>${fund.name}</h2>
+        <div class="manager" style="color: var(--text-dim); margin-bottom: 12px">${fund.manager}</div>
+        <div class="empty">${fund.thesis}</div>
+      </div>`;
+    return;
+  }
+
+  // Header card
+  const eq = fund.equityPct || 0, ca = fund.callsPct || 0, pu = fund.putsPct || 0;
+  const header = document.createElement('div');
+  header.className = 'card';
+  header.innerHTML = `
+    <div class="card-header">
+      <div>
+        <h2>${fund.name} ${fund.isReference ? '<span class="badge sa">REF</span>' : ''}</h2>
+        <div style="color:var(--text-dim); font-size: 11px; margin-top: 2px">${fund.manager} · Filed ${fund.filingDate} · Period ${fund.periodOfReport || STATE.data.asOf} · CIK ${fund.cik || '—'}${fund.sourceTag === 'edgar' ? ' · <span class="badge new">EDGAR</span>' : ''}</div>
+      </div>
+      <div class="right"><a href="#/dashboard">← Back</a></div>
+    </div>
+    <div class="stat-row">
+      <div class="stat"><div class="label">13F Total</div><div class="value">${fmtDollarsB(fund.totalBn)}</div></div>
+      <div class="stat"><div class="label"># Issuers</div><div class="value">${fund.numIssuers}</div></div>
+      <div class="stat"><div class="label">Top 10 conc.</div><div class="value small">${fmtPct(fund.top10Concentration, 0)}</div></div>
+      <div class="stat" style="flex:1; min-width: 240px">
+        <div class="label">Equity / Calls / Puts</div>
+        <div class="stacked-bar" style="margin-top: 4px; height: 18px">
+          <div class="seg eq" style="width:${(eq*100).toFixed(1)}%" title="Equity ${fmtPct(eq,1)}"></div>
+          <div class="seg calls" style="width:${(ca*100).toFixed(1)}%" title="Calls ${fmtPct(ca,1)}"></div>
+          <div class="seg puts" style="width:${(pu*100).toFixed(1)}%" title="Puts ${fmtPct(pu,1)}"></div>
+        </div>
+        <div class="legend" style="margin-top: 6px">
+          <div><span class="swatch" style="background:#2563eb"></span>Equity ${fmtPct(eq,1)}</div>
+          <div><span class="swatch" style="background:var(--calls)"></span>Calls ${fmtPct(ca,1)}</div>
+          <div><span class="swatch" style="background:var(--puts)"></span>Puts ${fmtPct(pu,1)}</div>
+        </div>
+      </div>
+    </div>
+    <div style="color:var(--text-dim); font-size: 12px; padding-top: 6px; border-top: 1px solid var(--border)">${fund.thesis || ''}</div>`;
+  root.appendChild(header);
+
+  // Toggle + holdings table
+  const tableCard = document.createElement('div');
+  tableCard.className = 'card';
+  tableCard.innerHTML = `<div class="card-header">
+    <h2>Holdings</h2>
+    <div class="toggle-group">
+      <button data-view="all">All</button>
+      <button data-view="top10">Top 10</button>
+      <button data-view="byCategory">By category</button>
+    </div></div>
+    <div id="fundTable"></div>`;
+  root.appendChild(tableCard);
+
+  tableCard.querySelectorAll('.toggle-group button').forEach(b => {
+    b.classList.toggle('active', b.dataset.view === STATE.fundViewMode);
+    b.onclick = () => {
+      STATE.fundViewMode = b.dataset.view;
+      tableCard.querySelectorAll('.toggle-group button').forEach(x => x.classList.toggle('active', x.dataset.view === STATE.fundViewMode));
+      drawFundTable(tableCard.querySelector('#fundTable'), fund);
+    };
+  });
+  drawFundTable(tableCard.querySelector('#fundTable'), fund);
+}
+
+function drawFundTable(container, fund) {
+  let holdings = [...fund.holdings].sort((a, b) => b.pct - a.pct);
+  if (STATE.fundViewMode === 'top10') holdings = holdings.slice(0, 10);
+
+  if (STATE.fundViewMode === 'byCategory') {
+    // Group by category
+    const groups = {};
+    for (const h of holdings) (groups[h.category] = groups[h.category] || []).push(h);
+    let html = '';
+    for (const [cat, items] of Object.entries(groups).sort((a, b) => {
+      const sa = a[1].reduce((s, h) => s + h.pct, 0);
+      const sb = b[1].reduce((s, h) => s + h.pct, 0);
+      return sb - sa;
+    })) {
+      const total = items.reduce((s, h) => s + h.pct, 0);
+      html += `<div class="section">
+        <div class="section-title">
+          <span class="cat-chip"><span class="swatch" style="background:${catColor(cat)}"></span>${cat}</span>
+          <span class="sub">${items.length} positions · ${fmtPct(total)} of 13F</span>
+        </div>
+        ${holdingsTableHtml(items)}
+      </div>`;
+    }
+    container.innerHTML = html;
+  } else {
+    container.innerHTML = holdingsTableHtml(holdings);
+  }
+
+  container.querySelectorAll('tbody tr').forEach(tr =>
+    tr.addEventListener('click', () => openTickerDrawer(tr.dataset.ticker)));
+}
+
+function holdingsTableHtml(rows) {
+  return `<table>
+    <thead><tr>
+      <th>#</th><th>Ticker</th><th>Issuer</th><th>Category</th>
+      <th class="num">Equity</th><th class="num">Calls</th><th class="num">Puts</th>
+      <th class="num">Total</th><th class="num">% of 13F</th><th style="width:80px">Allocation</th>
+    </tr></thead>
+    <tbody>
+    ${rows.map((h, i) => `
+      <tr data-ticker="${h.ticker}">
+        <td style="color:var(--text-faint)">${i + 1}</td>
+        <td><span class="ticker">${h.ticker}</span>${h.calls > 0 ? '<span class="badge calls">C</span>' : ''}${h.puts > 0 ? '<span class="badge puts">P</span>' : ''}</td>
+        <td style="color:var(--text-dim)">${escapeHtml(h.issuer)}</td>
+        <td><span class="cat-chip"><span class="swatch" style="background:${catColor(h.category)}"></span>${h.category}</span></td>
+        <td class="num">${fmtDollarsM(h.equity)}</td>
+        <td class="num" style="${h.calls>0?'color:var(--calls)':''}">${fmtDollarsM(h.calls)}</td>
+        <td class="num" style="${h.puts>0?'color:var(--puts)':''}">${fmtDollarsM(h.puts)}</td>
+        <td class="num">${fmtDollarsM(h.total)}</td>
+        <td class="num">${fmtPct(h.pct)}</td>
+        <td><div class="bar-thin" style="width:60px"><div class="fill" style="width:${Math.min(100, h.pct * 100 / 0.22 * 100).toFixed(0)}%; background:${catColor(h.category)}"></div></div></td>
+      </tr>`).join('')}
+    </tbody></table>`;
+}
+
+// ============================================================================
+// Compare view
+// ============================================================================
+function renderCompare(root) {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `<div class="card-header"><h2>Compare funds</h2>
+    <div class="right">Select up to 4</div></div>`;
+
+  const picker = document.createElement('div');
+  picker.className = 'fund-picker';
+  for (const f of fundsWithHoldings()) {
+    const checked = STATE.compareSelection.has(f.shortLabel);
+    const lbl = document.createElement('label');
+    lbl.className = checked ? 'checked' : '';
+    lbl.innerHTML = `<input type="checkbox" ${checked ? 'checked' : ''}> <span>${f.shortLabel}</span> <span style="color:var(--text-faint); font-size: 10px; margin-left:auto">${fmtDollarsB(f.totalBn)}</span>`;
+    lbl.querySelector('input').addEventListener('change', e => {
+      if (e.target.checked) {
+        if (STATE.compareSelection.size >= 4) { e.target.checked = false; return; }
+        STATE.compareSelection.add(f.shortLabel);
+      } else STATE.compareSelection.delete(f.shortLabel);
+      // Selection changed — fund column indices shift, so reset sort state.
+      STATE.compareSort = { common: null, divergent: null };
+      render();
+    });
+    picker.appendChild(lbl);
+  }
+  card.appendChild(picker);
+  root.appendChild(card);
+
+  if (STATE.compareSelection.size < 2) {
+    const hint = document.createElement('div');
+    hint.className = 'empty';
+    hint.textContent = 'Pick 2-4 funds above to compare.';
+    root.appendChild(hint);
+    return;
+  }
+
+  const selected = [...STATE.compareSelection].map(s => findFund(s)).filter(Boolean);
+
+  // Category allocation bars
+  const allocCard = document.createElement('div');
+  allocCard.className = 'card';
+  allocCard.innerHTML = `<h2>Category allocation</h2>`;
+  const cats = STATE.data.categories;
+  const allocBars = document.createElement('div');
+  allocBars.className = 'compare-bars';
+  for (const f of selected) {
+    const totals = {};
+    let grand = 0;
+    for (const h of f.holdings) {
+      totals[h.category] = (totals[h.category] || 0) + h.pct;
+      grand += h.pct;
+    }
+    const segs = cats.filter(c => totals[c] > 0).map(c => {
+      const pct = totals[c] / (grand || 1);
+      return `<div class="seg" style="width:${(pct*100).toFixed(1)}%; background:${catColor(c)}" title="${c}: ${fmtPct(pct,1)}"></div>`;
+    }).join('');
+    const row = document.createElement('div');
+    row.className = 'compare-bar-row';
+    row.innerHTML = `<div class="label">${f.shortLabel}<div style="font-size:10px; color:var(--text-faint)">${fmtDollarsB(f.totalBn)} · ${f.numIssuers} issuers</div></div>
+      <div class="compare-bar">${segs}</div>`;
+    allocBars.appendChild(row);
+  }
+  allocCard.appendChild(allocBars);
+  // Legend
+  const legend = document.createElement('div');
+  legend.className = 'legend';
+  legend.style.marginTop = '12px';
+  for (const c of cats) legend.innerHTML += `<div><span class="swatch" style="background:${catColor(c)}"></span>${c}</div>`;
+  allocCard.appendChild(legend);
+  root.appendChild(allocCard);
+
+  // Common & divergence
+  const common = [], divergent = [];
+  const tickerSets = selected.map(f => new Map(f.holdings.map(h => [h.ticker, h])));
+  const allTickers = new Set();
+  tickerSets.forEach(m => m.forEach((_, k) => allTickers.add(k)));
+  for (const t of allTickers) {
+    const presence = tickerSets.map(m => m.get(t));
+    const heldBy = presence.filter(Boolean).length;
+    if (heldBy === selected.length) common.push({ ticker: t, presence });
+    else if (heldBy >= 2) divergent.push({ ticker: t, presence, heldBy });
+  }
+  common.sort((a, b) => {
+    const sa = a.presence.reduce((s, p) => s + (p ? p.pct : 0), 0);
+    const sb = b.presence.reduce((s, p) => s + (p ? p.pct : 0), 0);
+    return sb - sa;
+  });
+  divergent.sort((a, b) => b.heldBy - a.heldBy || (() => {
+    const sa = a.presence.reduce((s, p) => s + (p ? p.pct : 0), 0);
+    const sb = b.presence.reduce((s, p) => s + (p ? p.pct : 0), 0);
+    return sb - sa;
+  })());
+
+  const commonCard = document.createElement('div');
+  commonCard.className = 'card';
+  commonCard.dataset.tableId = 'common';
+  commonCard.innerHTML = `<div class="card-header"><h2>Common holdings</h2>
+    <div class="right">${common.length} tickers held by all ${selected.length}</div></div>
+    <div class="compare-table-wrap"></div>`;
+  root.appendChild(commonCard);
+  drawComparisonTable(commonCard.querySelector('.compare-table-wrap'), 'common', common, selected, false);
+
+  const divCard = document.createElement('div');
+  divCard.className = 'card';
+  divCard.dataset.tableId = 'divergent';
+  divCard.innerHTML = `<div class="card-header"><h2>Divergence — held by some, not all</h2>
+    <div class="right">${divergent.length} tickers</div></div>
+    <div class="compare-table-wrap"></div>`;
+  root.appendChild(divCard);
+  drawComparisonTable(divCard.querySelector('.compare-table-wrap'), 'divergent', divergent, selected, true);
+}
+
+// Default sort = "score" (sum of allocations across selected funds, desc)
+function defaultCompareSort(showHeldBy) {
+  return { col: 'score', dir: 'desc' };
+}
+
+function drawComparisonTable(container, tableId, rows, selected, showHeldBy) {
+  if (!rows.length) { container.innerHTML = '<div class="empty">None.</div>'; return; }
+
+  // Active sort state — fall back to default
+  const sort = STATE.compareSort[tableId] || defaultCompareSort(showHeldBy);
+
+  // Sort rows
+  const cmp = (a, b) => {
+    const dir = sort.dir === 'asc' ? 1 : -1;
+    let av, bv;
+    if (sort.col === 'ticker') { av = a.ticker; bv = b.ticker; return av.localeCompare(bv) * dir; }
+    if (sort.col === 'category') {
+      av = (a.presence.find(Boolean) || {}).category || 'Other';
+      bv = (b.presence.find(Boolean) || {}).category || 'Other';
+      return av.localeCompare(bv) * dir;
+    }
+    if (sort.col === 'heldBy') { return ((a.heldBy || 0) - (b.heldBy || 0)) * dir; }
+    if (sort.col === 'score') {
+      av = a.presence.reduce((s, p) => s + (p ? p.pct : 0), 0);
+      bv = b.presence.reduce((s, p) => s + (p ? p.pct : 0), 0);
+      return (av - bv) * dir;
+    }
+    // Per-fund column — col is the fund index "fund:0", "fund:1", ...
+    if (sort.col.startsWith('fund:')) {
+      const idx = parseInt(sort.col.split(':')[1], 10);
+      // Treat missing positions as -1 so they sort to the bottom on desc
+      av = a.presence[idx] ? a.presence[idx].pct : -1;
+      bv = b.presence[idx] ? b.presence[idx].pct : -1;
+      return (av - bv) * dir;
+    }
+    return 0;
+  };
+  const sorted = [...rows].sort(cmp);
+
+  const arrow = (col) => sort.col === col
+    ? `<span class="sort-ind">${sort.dir === 'asc' ? '▲' : '▼'}</span>`
+    : '<span class="sort-ind"></span>';
+  const thClass = (col) => 'sortable' + (sort.col === col ? ' sort-active' : '');
+
+  const html = `<table>
+    <thead><tr>
+      <th class="${thClass('ticker')}" data-sort="ticker">Ticker${arrow('ticker')}</th>
+      <th class="${thClass('category')}" data-sort="category">Category${arrow('category')}</th>
+      ${selected.map((f, i) => `<th class="num ${thClass('fund:'+i)}" data-sort="fund:${i}">${f.shortLabel}${arrow('fund:'+i)}</th>`).join('')}
+      ${showHeldBy ? `<th class="num ${thClass('heldBy')}" data-sort="heldBy"># holders${arrow('heldBy')}</th>` : ''}
+    </tr></thead>
+    <tbody>
+    ${sorted.slice(0, 80).map(r => {
+      const cat = (r.presence.find(Boolean) || {}).category || 'Other';
+      return `<tr data-ticker="${r.ticker}">
+        <td><span class="ticker">${r.ticker}</span></td>
+        <td><span class="cat-chip"><span class="swatch" style="background:${catColor(cat)}"></span>${cat}</span></td>
+        ${r.presence.map(p => `<td class="num">${p ? fmtPct(p.pct) : '<span style="color:var(--text-faint)">—</span>'}</td>`).join('')}
+        ${showHeldBy ? `<td class="num">${r.heldBy}</td>` : ''}
+      </tr>`;
+    }).join('')}
+    </tbody></table>`;
+  container.innerHTML = html;
+
+  // Wire header clicks: toggle asc <-> desc on same column, switch to desc on new column
+  container.querySelectorAll('thead th[data-sort]').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.dataset.sort;
+      const current = STATE.compareSort[tableId];
+      let next;
+      if (current && current.col === col) {
+        next = { col, dir: current.dir === 'asc' ? 'desc' : 'asc' };
+      } else {
+        // Numeric columns default to descending (biggest first), text columns to ascending
+        const numericDefault = col.startsWith('fund:') || col === 'heldBy' || col === 'score';
+        next = { col, dir: numericDefault ? 'desc' : 'asc' };
+      }
+      STATE.compareSort[tableId] = next;
+      drawComparisonTable(container, tableId, rows, selected, showHeldBy);
+    });
+  });
+
+  // Re-wire ticker clicks (they get torn down on re-render)
+  container.querySelectorAll('tbody tr[data-ticker]').forEach(tr =>
+    tr.addEventListener('click', () => openTickerDrawer(tr.dataset.ticker)));
+}
+
+// ============================================================================
+// Conviction map — concentration (max %) vs. consensus (# funds holding)
+// ============================================================================
+function buildConvictionData() {
+  const idx = buildTickerIndex();
+  const out = [];
+  for (const [ticker, list] of idx.entries()) {
+    const cat = list[0].holding.category;
+    if (STATE.filterCategory && cat !== STATE.filterCategory) continue;
+    const maxHolder = list.reduce((a, b) => b.holding.pct > a.holding.pct ? b : a);
+    const totalUsd = list.reduce((s, x) => s + x.holding.total, 0);
+    const medianPct = median(list.map(x => x.holding.pct));
+    out.push({
+      ticker,
+      issuer: list[0].holding.issuer,
+      category: cat,
+      numFunds: list.length,
+      maxPct: maxHolder.holding.pct,
+      medianPct,
+      totalUsd,
+      maxFund: maxHolder.fund.shortLabel,
+      holders: list,
+    });
+  }
+  return out;
+}
+
+function renderConviction(root) {
+  // ----- Category filter chips -----
+  const catFilter = document.createElement('div');
+  catFilter.className = 'category-filter';
+  const allChip = document.createElement('span');
+  allChip.className = 'cat-chip' + (STATE.filterCategory === null ? ' active' : '');
+  allChip.textContent = 'All';
+  allChip.onclick = () => { STATE.filterCategory = null; render(); };
+  catFilter.appendChild(allChip);
+  for (const c of STATE.data.categories) {
+    const chip = document.createElement('span');
+    chip.className = 'cat-chip' + (STATE.filterCategory === c ? ' active' : '');
+    chip.innerHTML = `<span class="swatch" style="background:${catColor(c)}"></span>${c}`;
+    chip.onclick = () => { STATE.filterCategory = (STATE.filterCategory === c) ? null : c; render(); };
+    catFilter.appendChild(chip);
+  }
+  root.appendChild(catFilter);
+
+  // ----- Layout: chart left, side panels right -----
+  const wrap = document.createElement('div');
+  wrap.className = 'conviction-wrap';
+  root.appendChild(wrap);
+
+  const data = buildConvictionData();
+
+  // ----- Chart card -----
+  const chartCard = document.createElement('div');
+  chartCard.className = 'conviction-chart';
+  chartCard.innerHTML = `
+    <div class="card-header" style="margin-bottom:0">
+      <h2>Conviction map</h2>
+      <div class="right">Concentration (max % in any fund) vs. Consensus (# of funds holding)</div>
+    </div>
+    <div id="convictionSvgWrap" style="position:relative; margin-top: 8px"></div>
+    <div class="legend" style="margin-top:8px">
+      ${STATE.data.categories.map(c => `<div><span class="swatch" style="background:${catColor(c)}"></span>${c}</div>`).join('')}
+      <div style="margin-left:auto; color: var(--text-faint)">Dot size = total $ across funds</div>
+    </div>`;
+  wrap.appendChild(chartCard);
+  drawConvictionChart(chartCard.querySelector('#convictionSvgWrap'), data);
+
+  // ----- Side panels -----
+  const side = document.createElement('div');
+  side.className = 'conviction-side';
+  wrap.appendChild(side);
+
+  // Lonely conviction: a name qualifies if EITHER
+  //   (a) held by ≤2 funds at >5%, OR
+  //   (b) top holder is at >10% AND >3x the median holder's allocation
+  //       (catches names like CRWV: 3 holders but SA is 4-5x larger than the rest)
+  const lonely = data
+    .filter(d => {
+      const ratio = d.medianPct > 0 ? d.maxPct / d.medianPct : Infinity;
+      const a = d.numFunds <= 2 && d.maxPct > 0.05;
+      const b = d.maxPct > 0.10 && ratio > 3;
+      return a || b;
+    })
+    .sort((a, b) => b.maxPct - a.maxPct)
+    .slice(0, 12);
+  const lonelyCard = document.createElement('div');
+  lonelyCard.className = 'card';
+  lonelyCard.innerHTML = `
+    <div class="card-header"><h2>Lonely conviction</h2>
+      <div class="right">Few holders OR one fund far ahead of peers</div></div>
+    <div style="font-size: 11px; color: var(--text-faint); margin-bottom: 8px">≤ 2 holders at &gt;5%, or top holder at &gt;10% AND &gt;3× the median.</div>`;
+  if (!lonely.length) {
+    lonelyCard.innerHTML += '<div class="empty">No matches with current filter.</div>';
+  } else {
+    const ul = document.createElement('ul');
+    ul.className = 'conviction-list';
+    for (const d of lonely) {
+      const li = document.createElement('li');
+      li.dataset.ticker = d.ticker;
+      const ratio = d.medianPct > 0 ? (d.maxPct / d.medianPct).toFixed(1) + '×' : '—';
+      const peerCount = d.numFunds === 1
+        ? 'solo holder'
+        : `${d.numFunds} holders · ${ratio} vs. median`;
+      li.innerHTML = `
+        <div><span class="ticker">${d.ticker}</span></div>
+        <div>
+          <div style="color: var(--text); font-weight: 500">${d.maxFund}</div>
+          <div class="lc-meta"><span class="cat-chip" style="font-size: 9px; padding: 1px 5px"><span class="swatch" style="background:${catColor(d.category)}"></span>${d.category}</span> · ${peerCount}</div>
+        </div>
+        <div class="lc-pct">${fmtPct(d.maxPct)}</div>`;
+      li.onclick = () => openTickerDrawer(d.ticker);
+      ul.appendChild(li);
+    }
+    lonelyCard.appendChild(ul);
+  }
+  side.appendChild(lonelyCard);
+
+  // Crowded mega-bets: ≥5 funds AT >5% median
+  const crowded = data
+    .filter(d => d.numFunds >= 5 && d.medianPct > 0.05)
+    .sort((a, b) => b.medianPct * b.numFunds - a.medianPct * a.numFunds)
+    .slice(0, 10);
+  const crowdedCard = document.createElement('div');
+  crowdedCard.className = 'card';
+  crowdedCard.innerHTML = `
+    <div class="card-header"><h2>Crowded mega-bets</h2>
+      <div class="right">≥ 5 holders · median &gt;5%</div></div>
+    <div style="font-size: 11px; color: var(--text-faint); margin-bottom: 8px">The consensus AI trades — high agreement and high conviction together.</div>`;
+  if (!crowded.length) {
+    crowdedCard.innerHTML += '<div class="empty">No matches with current filter.</div>';
+  } else {
+    const ul = document.createElement('ul');
+    ul.className = 'conviction-list';
+    for (const d of crowded) {
+      const li = document.createElement('li');
+      li.dataset.ticker = d.ticker;
+      li.innerHTML = `
+        <div><span class="ticker">${d.ticker}</span></div>
+        <div>
+          <div style="color: var(--text); font-weight: 500">${d.numFunds} funds</div>
+          <div class="lc-meta"><span class="cat-chip" style="font-size: 9px; padding: 1px 5px"><span class="swatch" style="background:${catColor(d.category)}"></span>${d.category}</span></div>
+        </div>
+        <div class="lc-pct">${fmtPct(d.medianPct)}</div>`;
+      li.onclick = () => openTickerDrawer(d.ticker);
+      ul.appendChild(li);
+    }
+    crowdedCard.appendChild(ul);
+  }
+  side.appendChild(crowdedCard);
+}
+
+function drawConvictionChart(container, data) {
+  // Chart dims
+  const W = 920, H = 540;
+  const M = { top: 30, right: 30, bottom: 50, left: 60 };
+  const PW = W - M.left - M.right;
+  const PH = H - M.top - M.bottom;
+
+  // Scales
+  const maxFunds = Math.max(8, ...data.map(d => d.numFunds));
+  const maxPct = Math.max(0.25, ...data.map(d => d.maxPct));
+  const niceMax = Math.ceil(maxPct * 20) / 20; // round up to nearest 5%
+  const xOf = n => M.left + ((n - 0.5) / maxFunds) * PW;
+  const yOf = p => M.top + PH - (p / niceMax) * PH;
+
+  // Dot size by total $ — sqrt scale, jittered to avoid all-tiny dots when totals are small
+  const maxUsd = Math.max(1, ...data.map(d => d.totalUsd));
+  const rOf = u => 5 + Math.sqrt(u / maxUsd) * 22;
+
+  // Quadrant cutoffs: 5% conviction line, ~half the funds for consensus
+  const convictionLineY = yOf(0.05);
+  const consensusLineX = xOf(Math.ceil(maxFunds / 2));
+
+  // Build SVG
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+
+  // Grid + ticks
+  const yTicks = [];
+  for (let p = 0; p <= niceMax + 0.0001; p += 0.05) yTicks.push(Math.round(p * 100) / 100);
+  for (const t of yTicks) {
+    const y = yOf(t);
+    const line = document.createElementNS(svgNS, 'line');
+    line.setAttribute('class', 'grid-line');
+    line.setAttribute('x1', M.left); line.setAttribute('x2', W - M.right);
+    line.setAttribute('y1', y); line.setAttribute('y2', y);
+    svg.appendChild(line);
+    const lbl = document.createElementNS(svgNS, 'text');
+    lbl.setAttribute('class', 'tick-label');
+    lbl.setAttribute('x', M.left - 8); lbl.setAttribute('y', y + 3);
+    lbl.setAttribute('text-anchor', 'end');
+    lbl.textContent = (t * 100).toFixed(0) + '%';
+    svg.appendChild(lbl);
+  }
+  for (let n = 1; n <= maxFunds; n++) {
+    const x = xOf(n);
+    const lbl = document.createElementNS(svgNS, 'text');
+    lbl.setAttribute('class', 'tick-label');
+    lbl.setAttribute('x', x); lbl.setAttribute('y', H - M.bottom + 16);
+    lbl.setAttribute('text-anchor', 'middle');
+    lbl.textContent = n;
+    svg.appendChild(lbl);
+  }
+
+  // Axis labels
+  const xlbl = document.createElementNS(svgNS, 'text');
+  xlbl.setAttribute('class', 'axis-label');
+  xlbl.setAttribute('x', M.left + PW / 2); xlbl.setAttribute('y', H - 10);
+  xlbl.setAttribute('text-anchor', 'middle');
+  xlbl.textContent = '# of funds holding (consensus →)';
+  svg.appendChild(xlbl);
+
+  const ylbl = document.createElementNS(svgNS, 'text');
+  ylbl.setAttribute('class', 'axis-label');
+  ylbl.setAttribute('x', -(M.top + PH / 2)); ylbl.setAttribute('y', 16);
+  ylbl.setAttribute('text-anchor', 'middle');
+  ylbl.setAttribute('transform', 'rotate(-90)');
+  ylbl.textContent = 'Max % allocation (conviction ↑)';
+  svg.appendChild(ylbl);
+
+  // Quadrant dividers
+  const hLine = document.createElementNS(svgNS, 'line');
+  hLine.setAttribute('class', 'quadrant-line');
+  hLine.setAttribute('x1', M.left); hLine.setAttribute('x2', W - M.right);
+  hLine.setAttribute('y1', convictionLineY); hLine.setAttribute('y2', convictionLineY);
+  svg.appendChild(hLine);
+  const vLine = document.createElementNS(svgNS, 'line');
+  vLine.setAttribute('class', 'quadrant-line');
+  vLine.setAttribute('x1', consensusLineX); vLine.setAttribute('x2', consensusLineX);
+  vLine.setAttribute('y1', M.top); vLine.setAttribute('y2', H - M.bottom);
+  svg.appendChild(vLine);
+
+  // Quadrant labels
+  const quadrantLabels = [
+    { x: M.left + 12, y: M.top + 14, text: 'LONELY CONVICTION', anchor: 'start' },
+    { x: W - M.right - 12, y: M.top + 14, text: 'CROWDED MEGA-BETS', anchor: 'end' },
+    { x: M.left + 12, y: H - M.bottom - 10, text: 'TAIL POSITIONS', anchor: 'start' },
+    { x: W - M.right - 12, y: H - M.bottom - 10, text: 'CONSENSUS SMALL BETS', anchor: 'end' },
+  ];
+  for (const q of quadrantLabels) {
+    const t = document.createElementNS(svgNS, 'text');
+    t.setAttribute('class', 'quadrant-label');
+    t.setAttribute('x', q.x); t.setAttribute('y', q.y);
+    t.setAttribute('text-anchor', q.anchor);
+    t.textContent = q.text;
+    svg.appendChild(t);
+  }
+
+  // Sort dots by total $ descending so big dots draw under little ones,
+  // keeping small/lonely conviction dots visible
+  const sorted = [...data].sort((a, b) => b.totalUsd - a.totalUsd);
+
+  // Jitter X so dots at the same integer don't all overlap
+  const xJitter = (ticker, n) => {
+    let h = 0; for (let i = 0; i < ticker.length; i++) h = (h * 31 + ticker.charCodeAt(i)) | 0;
+    return xOf(n) + ((h % 100) / 100 - 0.5) * 28;
+  };
+
+  // Tooltip
+  const tip = document.createElement('div');
+  tip.className = 'conviction-tooltip';
+  container.appendChild(tip);
+
+  // Dots
+  for (const d of sorted) {
+    const cx = xJitter(d.ticker, d.numFunds);
+    const cy = yOf(d.maxPct);
+    const r = rOf(d.totalUsd);
+    const color = catColor(d.category);
+
+    const c = document.createElementNS(svgNS, 'circle');
+    c.setAttribute('class', 'dot');
+    c.setAttribute('cx', cx); c.setAttribute('cy', cy); c.setAttribute('r', r);
+    c.setAttribute('fill', color); c.setAttribute('fill-opacity', '0.7');
+    c.setAttribute('stroke', color); c.setAttribute('stroke-opacity', '0.9'); c.setAttribute('stroke-width', '1');
+
+    // Hover
+    c.addEventListener('mouseenter', (ev) => {
+      tip.style.display = 'block';
+      tip.innerHTML = `
+        <div class="t">${d.ticker}</div>
+        <div style="color: var(--text-dim); font-size: 10px; margin-bottom: 4px">${escapeHtml(d.issuer)}</div>
+        <div class="row"><span>Category</span><span class="v">${d.category}</span></div>
+        <div class="row"><span># funds holding</span><span class="v">${d.numFunds}</span></div>
+        <div class="row"><span>Max allocation</span><span class="v">${fmtPct(d.maxPct)} (${d.maxFund})</span></div>
+        <div class="row"><span>Median allocation</span><span class="v">${fmtPct(d.medianPct)}</span></div>
+        <div class="row"><span>Total across funds</span><span class="v">${fmtDollarsM(d.totalUsd, 0)}</span></div>`;
+    });
+    c.addEventListener('mousemove', (ev) => {
+      const rect = container.getBoundingClientRect();
+      const x = ev.clientX - rect.left + 14;
+      const y = ev.clientY - rect.top + 14;
+      tip.style.left = Math.min(x, rect.width - 230) + 'px';
+      tip.style.top = Math.min(y, rect.height - 160) + 'px';
+    });
+    c.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+    c.addEventListener('click', () => openTickerDrawer(d.ticker));
+    svg.appendChild(c);
+
+    // Label only big dots so the chart stays readable
+    if (r >= 10 || d.maxPct >= 0.10) {
+      const lbl = document.createElementNS(svgNS, 'text');
+      lbl.setAttribute('class', 'dot-label');
+      lbl.setAttribute('x', cx); lbl.setAttribute('y', cy + 3);
+      lbl.setAttribute('text-anchor', 'middle');
+      lbl.textContent = d.ticker;
+      svg.appendChild(lbl);
+    }
+  }
+
+  container.appendChild(svg);
+}
+
+// ============================================================================
+// Ticker drawer
+// ============================================================================
+function openTickerDrawer(ticker) {
+  const idx = buildTickerIndex();
+  const holders = idx.get(ticker);
+  if (!holders) return;
+  const drawer = document.getElementById('drawer');
+  const overlay = document.getElementById('drawerOverlay');
+  document.getElementById('drawerTitle').textContent = ticker;
+  document.getElementById('drawerSub').textContent = holders[0].holding.issuer + ' · ' + holders[0].holding.category;
+
+  const cat = holders[0].holding.category;
+  const totalAcross = holders.reduce((s, h) => s + h.holding.total, 0);
+  const numFunds = holders.length;
+  const med = median(holders.map(h => h.holding.pct));
+
+  let html = `
+    <div class="stat-row">
+      <div class="stat"><div class="label"># Funds holding</div><div class="value">${numFunds}</div></div>
+      <div class="stat"><div class="label">Median % of 13F</div><div class="value small">${fmtPct(med)}</div></div>
+      <div class="stat"><div class="label">Total across funds</div><div class="value small">${fmtDollarsM(totalAcross, 0)}</div></div>
+    </div>
+    <div style="margin: 8px 0 16px"><span class="cat-chip active"><span class="swatch" style="background:${catColor(cat)}"></span>${cat}</span></div>
+    <h3>Holders</h3>
+    <table>
+      <thead><tr>
+        <th>Fund</th>
+        <th class="num">Equity</th>
+        <th class="num">Calls</th>
+        <th class="num">Puts</th>
+        <th class="num">% of 13F</th>
+      </tr></thead>
+      <tbody>
+      ${holders.sort((a, b) => b.holding.pct - a.holding.pct).map(h => `
+        <tr data-fund="${escapeAttr(h.fund.shortLabel)}">
+          <td style="cursor:pointer">${h.fund.shortLabel}${h.fund.isReference ? '<span class="badge sa">REF</span>' : ''}</td>
+          <td class="num">${fmtDollarsM(h.holding.equity)}</td>
+          <td class="num" style="${h.holding.calls>0?'color:var(--calls)':'color:var(--text-faint)'}">${fmtDollarsM(h.holding.calls)}</td>
+          <td class="num" style="${h.holding.puts>0?'color:var(--puts)':'color:var(--text-faint)'}">${fmtDollarsM(h.holding.puts)}</td>
+          <td class="num"><strong>${fmtPct(h.holding.pct)}</strong></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+  document.getElementById('drawerBody').innerHTML = html;
+
+  document.getElementById('drawerBody').querySelectorAll('tr[data-fund]').forEach(tr =>
+    tr.addEventListener('click', () => { closeDrawer(); navigateToFund(tr.dataset.fund); }));
+
+  drawer.classList.add('show');
+  drawer.setAttribute('aria-hidden', 'false');
+  overlay.classList.add('show');
+}
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('show');
+  document.getElementById('drawerOverlay').classList.remove('show');
+}
+
+// ============================================================================
+// EDGAR update
+// ============================================================================
+async function runEdgarUpdate() {
+  const btn = document.getElementById('updateBtn');
+  btn.disabled = true;
+  const originalText = btn.textContent;
+  btn.textContent = 'Fetching from EDGAR…';
+  try {
+    const ciks = STATE.data.funds.filter(f => f.cik).map(f => f.cik);
+    const r = await fetch('/api/edgar?ciks=' + ciks.join(','));
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const result = await r.json();
+    STATE.edgarResults = result;
+    location.hash = '#/dashboard';
+    render();
+  } catch (e) {
+    STATE.edgarResults = { error: e.message };
+    render();
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+function renderEdgarStatus() {
+  const card = document.createElement('div');
+  card.className = 'edgar-status';
+  const r = STATE.edgarResults;
+  if (r.error) {
+    card.innerHTML = `<div class="err"><strong>EDGAR fetch failed:</strong> ${escapeHtml(r.error)}</div>`;
+    return card;
+  }
+  let html = `<div style="margin-bottom: 8px"><strong>EDGAR results</strong> <span style="color:var(--text-faint)">${r.fetchedAt || ''}</span> <button class="btn" style="float:right; padding: 2px 8px; font-size: 10px" id="dismissEdgar">Dismiss</button></div>`;
+  for (const f of (r.funds || [])) {
+    const newBadge = f.isNew ? '<span class="badge new">NEW</span>' : '';
+    const status = f.error
+      ? `<span class="err">${escapeHtml(f.error)}</span>`
+      : `<span class="ok">${f.numIssuers || 0} issuers · ${f.periodOfReport || '—'}</span>`;
+    html += `<div class="row"><div>${f.fundName || f.cik} ${newBadge}</div><div>${status}</div></div>`;
+  }
+  card.innerHTML = html;
+  setTimeout(() => {
+    const btn = card.querySelector('#dismissEdgar');
+    if (btn) btn.onclick = () => { STATE.edgarResults = null; render(); };
+  }, 0);
+  return card;
+}
+
+// ============================================================================
+// Search
+// ============================================================================
+let SEARCH_TICKERS = [], SEARCH_FUNDS = [];
+function renderSearchIndex() {
+  const idx = buildTickerIndex();
+  SEARCH_TICKERS = [];
+  for (const [ticker, list] of idx.entries()) {
+    SEARCH_TICKERS.push({ ticker, issuer: list[0].holding.issuer });
+  }
+  SEARCH_FUNDS = STATE.data.funds.map(f => ({ name: f.shortLabel, full: f.name }));
+}
+
+function setupEvents() {
+  const inp = document.getElementById('searchInput');
+  const out = document.getElementById('searchResults');
+  inp.addEventListener('input', () => {
+    const q = inp.value.trim().toLowerCase();
+    if (!q) { out.classList.remove('show'); return; }
+    const tickers = SEARCH_TICKERS.filter(t =>
+      t.ticker.toLowerCase().startsWith(q) || t.issuer.toLowerCase().includes(q)).slice(0, 8);
+    const funds = SEARCH_FUNDS.filter(f =>
+      f.name.toLowerCase().includes(q) || f.full.toLowerCase().includes(q)).slice(0, 6);
+    let html = '';
+    if (tickers.length) {
+      html += '<div class="group">Tickers</div>';
+      for (const t of tickers) html += `<div class="item" data-action="ticker" data-arg="${escapeAttr(t.ticker)}"><span class="t">${t.ticker}</span><span class="name">${escapeHtml(t.issuer)}</span></div>`;
+    }
+    if (funds.length) {
+      html += '<div class="group">Funds</div>';
+      for (const f of funds) html += `<div class="item" data-action="fund" data-arg="${escapeAttr(f.name)}"><span class="t">${escapeHtml(f.name)}</span><span class="name">${escapeHtml(f.full)}</span></div>`;
+    }
+    if (!html) html = '<div class="item" style="color:var(--text-faint)">No matches</div>';
+    out.innerHTML = html;
+    out.classList.add('show');
+    out.querySelectorAll('[data-action]').forEach(el => el.addEventListener('click', () => {
+      const a = el.dataset.action, arg = el.dataset.arg;
+      out.classList.remove('show');
+      inp.value = '';
+      if (a === 'ticker') openTickerDrawer(arg);
+      else if (a === 'fund') navigateToFund(arg);
+    }));
+  });
+  inp.addEventListener('blur', () => setTimeout(() => out.classList.remove('show'), 150));
+
+  // Nav clicks
+  document.querySelectorAll('nav.tabs a').forEach(a => a.addEventListener('click', e => {
+    e.preventDefault();
+    location.hash = a.dataset.route;
+  }));
+
+  document.getElementById('drawerClose').onclick = closeDrawer;
+  document.getElementById('drawerOverlay').onclick = closeDrawer;
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+
+  document.getElementById('updateBtn').onclick = runEdgarUpdate;
+}
+
+function navigateToFund(shortLabel) {
+  location.hash = '#/fund/' + encodeURIComponent(shortLabel);
+}
+
+// ============================================================================
+// Caveats
+// ============================================================================
+function renderCaveats() {
+  const ul = document.getElementById('caveats');
+  for (const c of (STATE.data.caveats || [])) {
+    const li = document.createElement('li');
+    li.textContent = c;
+    ul.appendChild(li);
+  }
+}
+
+// ============================================================================
+// Utils
+// ============================================================================
+function escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function escapeAttr(s) { return escapeHtml(s); }
+
+</script>
+</body>
+</html>
