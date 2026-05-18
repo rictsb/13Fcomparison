@@ -434,6 +434,42 @@ tbody td.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums
 .modal .result .name { color: var(--text); }
 .modal .result .meta-r { color: var(--text-faint); font-family: var(--font-mono); font-size: 10px; }
 
+/* List view of funds */
+.funds-list-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.funds-list-table th {
+  text-align: left; font-weight: 500; color: var(--text-faint);
+  text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;
+  padding: 8px 10px; border-bottom: 1px solid var(--border);
+  background: var(--bg-elev); position: sticky; top: 0; cursor: pointer; user-select: none;
+}
+.funds-list-table th:hover { color: var(--text); }
+.funds-list-table th.num { text-align: right; }
+.funds-list-table th.sort-active { color: var(--text); }
+.funds-list-table th .sort-ind { color: var(--accent); margin-left: 4px; }
+.funds-list-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.funds-list-table tbody tr { cursor: pointer; }
+.funds-list-table tbody tr:hover { background: var(--row-hover); }
+.funds-list-table tbody tr.sa-row { border-left: 3px solid var(--sa); }
+.funds-list-table .fund-name { font-weight: 600; color: var(--text); }
+.funds-list-table .fund-meta { font-size: 10px; color: var(--text-dim); margin-top: 1px; }
+.funds-list-table td.num { font-family: var(--font-mono); text-align: right; font-variant-numeric: tabular-nums; }
+.funds-list-table td.mini-cell { font-family: var(--font-mono); font-size: 11px; }
+.funds-list-table td.mini-cell .mini-pair { display: inline-block; margin-right: 8px; }
+.funds-list-table td.mini-cell .mini-pair .ticker { color: var(--accent); font-weight: 600; cursor: pointer; }
+.funds-list-table td.mini-cell .mini-pair .pct { color: var(--text-dim); }
+.funds-list-table .row-x {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 50%; background: var(--puts);
+  color: white; font-size: 11px; line-height: 1; cursor: pointer; font-weight: 600;
+}
+.funds-list-table .row-x:hover { filter: brightness(1.15); }
+
+/* View toggle */
+.view-toggle { display: inline-flex; background: var(--bg-elev2); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+.view-toggle button { background: none; border: none; color: var(--text-dim); padding: 4px 10px; font-size: 11px; cursor: pointer; }
+.view-toggle button.active { background: var(--accent-soft); color: var(--text); }
+.view-toggle button:hover:not(.active) { color: var(--text); }
+
 /* ---------- Section gaps ---------- */
 .section { margin-bottom: 22px; }
 .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-dim); margin: 0 0 8px; display: flex; gap: 10px; align-items: baseline; }
@@ -638,12 +674,16 @@ const STATE = {
   editMode: false,
   hiddenCiks: new Set(JSON.parse(localStorage.getItem('hiddenCiks') || '[]')),
   customFunds: JSON.parse(localStorage.getItem('customFunds') || '[]'),
+  fundsView: localStorage.getItem('fundsView') || 'cards', // 'cards' | 'list'
+  fundsListSort: JSON.parse(localStorage.getItem('fundsListSort') || '{"col":"totalBn","dir":"desc"}'),
 };
 
 function persistCustomizations() {
   try {
     localStorage.setItem('hiddenCiks', JSON.stringify([...STATE.hiddenCiks]));
     localStorage.setItem('customFunds', JSON.stringify(STATE.customFunds));
+    localStorage.setItem('fundsView', STATE.fundsView);
+    localStorage.setItem('fundsListSort', JSON.stringify(STATE.fundsListSort));
   } catch (_) {}
 }
 
@@ -1120,10 +1160,172 @@ function renderFundSnapshot({ editable = false } = {}) {
 }
 
 // ============================================================================
-// Fund list (dedicated #/funds route — full management UI)
+// Fund list (dedicated #/funds route — toggle between Cards and List views,
+// both with management UI)
 // ============================================================================
 function renderFundList(root) {
-  root.appendChild(renderFundSnapshot({ editable: true }));
+  // Header card with view toggle + management buttons
+  const wrap = document.createElement('div');
+  wrap.className = 'card';
+  const funds = visibleFunds();
+  const filersN = funds.filter(f => f.hasHoldings).length;
+  const nonFilersN = funds.length - filersN;
+  wrap.innerHTML = `
+    <div class="card-header">
+      <h2>Funds</h2>
+      <div class="right" style="display:flex; gap:8px; align-items:center">
+        <span>${filersN} filers${nonFilersN ? ' · ' + nonFilersN + ' non-filers' : ''}${STATE.hiddenCiks.size ? ` · <span style="color:var(--text-faint)">${STATE.hiddenCiks.size} hidden</span>` : ''}</span>
+        <div class="view-toggle">
+          <button data-view="cards" class="${STATE.fundsView==='cards'?'active':''}">Cards</button>
+          <button data-view="list" class="${STATE.fundsView==='list'?'active':''}">List</button>
+        </div>
+        <button class="btn" id="manageBtn2">${STATE.editMode ? 'Done' : 'Manage'}</button>
+        <button class="btn" id="addFundBtn2">+ Add fund</button>
+      </div>
+    </div>
+    <div id="fundsBody"></div>`;
+  root.appendChild(wrap);
+
+  const body = wrap.querySelector('#fundsBody');
+  if (STATE.fundsView === 'list') drawFundsListView(body);
+  else drawFundsCardsView(body);
+
+  // Wire header controls
+  wrap.querySelectorAll('.view-toggle button').forEach(b => {
+    b.onclick = () => {
+      STATE.fundsView = b.dataset.view;
+      persistCustomizations();
+      render();
+    };
+  });
+  wrap.querySelector('#manageBtn2').onclick = () => { STATE.editMode = !STATE.editMode; render(); };
+  wrap.querySelector('#addFundBtn2').onclick = openAddFundModal;
+}
+
+function drawFundsCardsView(container) {
+  // Reuse the snapshot grid but stripped of its header (we already showed one)
+  const snap = renderFundSnapshot({ editable: true });
+  const grid = snap.querySelector('.fund-card-list');
+  if (grid) container.appendChild(grid);
+}
+
+function drawFundsListView(container) {
+  const funds = visibleFunds();
+  const sort = STATE.fundsListSort || { col: 'totalBn', dir: 'desc' };
+  const dir = sort.dir === 'asc' ? 1 : -1;
+
+  // Compute per-fund derived fields (top-3 by size, top-3 by return) once
+  const rows = funds.map(f => {
+    const sorted = [...(f.holdings || [])].sort((a, b) => b.pct - a.pct);
+    const topSize = sorted.slice(0, 3);
+    const withReturns = (f.holdings || [])
+      .filter(h => !h.ticker.startsWith('?'))
+      .map(h => ({ ...h, ret: STATE.data.prices?.[h.ticker]?.return13W }))
+      .filter(h => h.ret != null);
+    const topReturn = [...withReturns].sort((a, b) => b.ret - a.ret).slice(0, 3);
+    const bestReturn = topReturn[0]?.ret ?? null;
+    return { f, topSize, topReturn, bestReturn };
+  });
+
+  rows.sort((a, b) => {
+    const A = a.f, B = b.f;
+    let av, bv;
+    switch (sort.col) {
+      case 'name':       av = (A.shortLabel || A.name || '').toLowerCase(); bv = (B.shortLabel || B.name || '').toLowerCase(); return av.localeCompare(bv) * dir;
+      case 'manager':    av = (A.manager || '').toLowerCase(); bv = (B.manager || '').toLowerCase(); return av.localeCompare(bv) * dir;
+      case 'period':     av = A.periodOfReport || ''; bv = B.periodOfReport || ''; return av.localeCompare(bv) * dir;
+      case 'numIssuers': return ((A.numIssuers || 0) - (B.numIssuers || 0)) * dir;
+      case 'top10':      return ((A.top10Concentration || 0) - (B.top10Concentration || 0)) * dir;
+      case 'bestReturn': return ((a.bestReturn ?? -Infinity) - (b.bestReturn ?? -Infinity)) * dir;
+      case 'totalBn':
+      default:           return ((A.totalBn || 0) - (B.totalBn || 0)) * dir;
+    }
+  });
+
+  const arrow = (col) => sort.col === col ? `<span class="sort-ind">${sort.dir==='asc'?'▲':'▼'}</span>` : '';
+  const thClass = (col, extra='') => `${extra}${sort.col === col ? ' sort-active' : ''}`.trim();
+
+  const miniCell = (items, useReturn = false) => {
+    if (!items.length) return '<span style="color:var(--text-faint)">—</span>';
+    return items.map(h => {
+      if (useReturn) {
+        const sign = h.ret >= 0 ? '+' : '';
+        const color = h.ret >= 0 ? 'var(--calls)' : 'var(--puts)';
+        return `<span class="mini-pair"><span class="ticker" data-ticker="${h.ticker}">${h.ticker}</span> <span class="pct" style="color:${color}">${sign}${h.ret.toFixed(0)}%</span></span>`;
+      }
+      return `<span class="mini-pair"><span class="ticker" data-ticker="${h.ticker}">${h.ticker}</span> <span class="pct">${fmtPct(h.pct, 0)}</span></span>`;
+    }).join('');
+  };
+
+  const table = document.createElement('table');
+  table.className = 'funds-list-table';
+  table.innerHTML = `
+    <thead><tr>
+      <th data-sort="name" class="${thClass('name')}">Fund${arrow('name')}</th>
+      <th data-sort="period" class="${thClass('period')}">Period${arrow('period')}</th>
+      <th data-sort="totalBn" class="num ${thClass('totalBn','num')}">13F Total${arrow('totalBn')}</th>
+      <th data-sort="numIssuers" class="num ${thClass('numIssuers','num')}"># Issuers${arrow('numIssuers')}</th>
+      <th data-sort="top10" class="num ${thClass('top10','num')}">Top 10${arrow('top10')}</th>
+      <th>Top 3 by size</th>
+      <th data-sort="bestReturn" class="${thClass('bestReturn')}">Top 3 by 13W return${arrow('bestReturn')}</th>
+      ${STATE.editMode ? '<th></th>' : ''}
+    </tr></thead>
+    <tbody>
+    ${rows.map(({ f, topSize, topReturn }) => {
+      const period = f.periodOfReport || STATE.data.asOf || '—';
+      const total = f.totalBn != null ? fmtDollarsB(f.totalBn) : '—';
+      const issuers = f.numIssuers ?? '—';
+      const top10 = f.top10Concentration != null ? fmtPct(f.top10Concentration, 0) : '—';
+      const removeCell = STATE.editMode
+        ? `<td style="text-align:center"><span class="row-x" data-cik="${f.cik || ''}" title="Hide">×</span></td>`
+        : '';
+      return `<tr data-fund="${escapeAttr(f.shortLabel || f.name)}" class="${f.isReference ? 'sa-row' : ''}">
+        <td>
+          <div class="fund-name">${escapeHtml(f.shortLabel || f.name)} ${f.isReference?'<span class="badge sa">REF</span>':''}${f.optionsHeavy?'<span class="badge calls">OPT</span>':''}${f.sourceTag === 'edgar'?'<span class="badge new">EDGAR</span>':''}</div>
+          <div class="fund-meta">${escapeHtml(f.manager || '')}${f.cik ? ` · CIK ${f.cik}` : ''}</div>
+        </td>
+        <td><span style="font-family: var(--font-mono); color: var(--text-dim); font-size: 11px">${period}</span></td>
+        <td class="num">${total}</td>
+        <td class="num">${issuers}</td>
+        <td class="num">${top10}</td>
+        <td class="mini-cell">${miniCell(topSize)}</td>
+        <td class="mini-cell">${miniCell(topReturn, true)}</td>
+        ${removeCell}
+      </tr>`;
+    }).join('')}
+    </tbody>`;
+  container.appendChild(table);
+
+  // Wire header sort
+  table.querySelectorAll('thead th[data-sort]').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.dataset.sort;
+      const current = STATE.fundsListSort;
+      const numericDefaults = ['totalBn', 'numIssuers', 'top10', 'bestReturn'];
+      let next;
+      if (current?.col === col) next = { col, dir: current.dir === 'asc' ? 'desc' : 'asc' };
+      else next = { col, dir: numericDefaults.includes(col) ? 'desc' : 'asc' };
+      STATE.fundsListSort = next;
+      persistCustomizations();
+      render();
+    });
+  });
+
+  // Wire row click → fund view (but not when clicking ticker or X)
+  table.querySelectorAll('tbody tr').forEach(tr => {
+    tr.addEventListener('click', (e) => {
+      const tEl = e.target.closest('.ticker[data-ticker]');
+      if (tEl) { e.stopPropagation(); openTickerDrawer(tEl.dataset.ticker); return; }
+      const xEl = e.target.closest('.row-x');
+      if (xEl) {
+        e.stopPropagation();
+        const cik = xEl.dataset.cik;
+        if (cik) { STATE.hiddenCiks.add(cik); persistCustomizations(); render(); }
+        return;
+      }
+      navigateToFund(tr.dataset.fund);
+    });
+  });
 }
 
 // ============================================================================
