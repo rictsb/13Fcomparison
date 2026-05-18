@@ -250,6 +250,9 @@ def fnum(v):
 
 def parse_fund_summary(wb):
     """Read the Fund Summary tab and return dict of fund metadata."""
+    # Sub-funds that roll up into a parent's 13F (no standalone filing).
+    # Surfaced in the spreadsheet for reference only.
+    SKIP = {"Whale Rock Flagship AI Fund LP", "Point72 Turion"}
     ws = wb["Fund Summary"]
     rows = list(ws.iter_rows(values_only=True))
     header = rows[0]
@@ -258,6 +261,8 @@ def parse_fund_summary(wb):
         if not r or r[1] is None:
             continue
         name = r[1]
+        if name in SKIP:
+            continue
         filing_date = r[10]
         if isinstance(filing_date, datetime):
             filing_date = filing_date.strftime("%Y-%m-%d")

@@ -35,6 +35,7 @@ const KNOWN_CIKS = {
   'Dedeker':         '0002113408',
   'Arosa':           '0001596053',
   'PIAR':            '0002054677',
+  'Jane Street':     '0001595888',
 };
 
 // ----------------------------------------------------------------------------
@@ -336,6 +337,10 @@ async function buildFundFromEntries(existing, entries, filingDate, periodOfRepor
     totalAll += total;
   }
   positions.sort((a, b) => b.total - a.total);
+  // Cap at top 100 by total $. Market-makers like Jane Street can file 4000+
+  // hedging positions — the long tail is noise. Top 100 covers any concentrated
+  // hedge fund completely and ~99% of $ exposure for diversified filers.
+  if (positions.length > 100) positions.length = 100;
   positions.forEach((p, i) => {
     p.rank = i + 1;
     p.pct = (p.total * 1e6) / totalAll;

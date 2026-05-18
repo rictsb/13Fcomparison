@@ -49,6 +49,7 @@ const FUND_BY_CIK = {
   '0002113408': { name: 'Dedeker Financial LLC',                 short: 'Dedeker' },
   '0001596053': { name: 'Arosa Capital Management LP',           short: 'Arosa',                 manager: 'Till Bechtolsheimer' },
   '0002054677': { name: 'PIAR LLC',                              short: 'PIAR' },
+  '0001595888': { name: 'Jane Street Group, LLC',                short: 'Jane Street' },
 };
 
 // "New" badge in the UI fires for periods after this.

@@ -9,6 +9,8 @@
     "build:data": "python3 scripts/build_data.py AI_Hedge_Funds_13F_Tracker.xlsx data.json",
     "refresh": "node scripts/refresh_funds.mjs",
     "refresh:prices": "node scripts/refresh_prices.mjs",
+    "refresh:returns": "node scripts/refresh_returns.mjs",
+    "resolve:tickers": "node scripts/resolve_placeholders.mjs",
     "dev": "node server.js",
     "vercel-dev": "vercel dev",
     "vercel-deploy": "vercel deploy --prod"
