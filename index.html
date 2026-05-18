@@ -1169,32 +1169,26 @@ async function runAddFundSearch(query) {
   if (!query || query.length < 2) { results.innerHTML = ''; return; }
   results.innerHTML = '<div style="color:var(--text-faint); font-size:11px">searching…</div>';
   try {
-    // Hit SEC EDGAR full-text search for 13F-HR filings matching the query
-    const url = `https://efts.sec.gov/LATEST/search-index?q=${encodeURIComponent(query)}&forms=13F-HR`;
-    const r = await fetch(url);
-    if (!r.ok) throw new Error('SEC ' + r.status);
-    const d = await r.json();
-    const hits = d.hits?.hits || [];
-    const seen = new Map();   // cik -> displayName
-    for (const h of hits.slice(0, 20)) {
-      const ciks = h._source?.ciks || [];
-      const names = h._source?.display_names || [];
-      for (let i = 0; i < ciks.length; i++) {
-        const cik = String(ciks[i]).padStart(10, '0');
-        if (!seen.has(cik)) seen.set(cik, names[i] || cik);
-      }
+    // Call our /api/search proxy — SEC's efts.sec.gov doesn't set CORS headers,
+    // so the browser can't hit it directly.
+    const r = await fetch('/api/search?q=' + encodeURIComponent(query));
+    if (!r.ok) {
+      let body = ''; try { body = (await r.json()).error || ''; } catch (_) {}
+      throw new Error(body || ('HTTP ' + r.status));
     }
-    if (!seen.size) {
+    const d = await r.json();
+    const hits = d.results || [];
+    if (!hits.length) {
       results.innerHTML = '<div style="color:var(--text-faint); font-size:11px">No matches.</div>';
       return;
     }
     results.innerHTML = '';
-    for (const [cik, name] of seen) {
+    for (const { cik, name } of hits) {
       const already = STATE.data.funds.find(f => f.cik === cik) || STATE.customFunds.find(f => f.cik === cik);
       const row = document.createElement('div');
       row.className = 'result';
       row.innerHTML = `
-        <span class="name">${escapeHtml(name.replace(/\s*\(CIK\s+\d+\)$/i, ''))}</span>
+        <span class="name">${escapeHtml(name)}</span>
         <span class="meta-r">CIK ${cik}${already ? ' · already added' : ''}</span>`;
       if (already) {
         row.style.opacity = 0.5; row.style.cursor = 'default';
