@@ -15,6 +15,27 @@ const SEC_UA = process.env.SEC_USER_AGENT || '13F Tracker richard@taylor.st';
 
 const DEFAULT_REFRESH = ['Light Street', 'Tiger Global', 'Whale Rock'];
 
+// shortLabel -> CIK for funds not in data.json yet (also serves as a quick lookup)
+const KNOWN_CIKS = {
+  'Maytree':         '0001869683',
+  'Trivest':         '0001555623',
+  'Broad Peak':      '0001547349',
+  'CloudAlpha':      '0001745907',
+  'WT Asset Mgmt':   '0001780365',
+  'AI-Squared':      '0001933952',
+  'Anatole':         '0001693745',
+  'Blue Whale':      '0001801547',
+  'Styrax':          '0001904897',
+  'Tensor Edge':     '0002096531',
+  'Analog Century':  '0001753384',
+  'Avalon Global':   '0001314273',
+  'Elemental':       '0001860672',
+  'Deepwater':       '0001964171',
+  'Dedeker':         '0002113408',
+  'Arosa':           '0001596053',
+  'PIAR':            '0002054677',
+};
+
 // ----------------------------------------------------------------------------
 // Categorization — must mirror scripts/build_data.py exactly
 // ----------------------------------------------------------------------------
