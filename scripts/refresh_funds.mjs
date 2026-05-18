@@ -10,6 +10,7 @@
 //   5. Re-bakes the JSON into the <script id="bakedData"> block in index.html.
 
 import { readFileSync, writeFileSync } from 'fs';
+import { makeResolver, loadSecIndex } from '../api/lib/sec_tickers.mjs';
 
 const SEC_UA = process.env.SEC_USER_AGENT || '13F Tracker richard@taylor.st';
 
@@ -202,22 +203,52 @@ const ISSUER_TO_TICKER = {
   'BROOKFIELDCORP': 'BN',
   'SPLUNK': 'SPLK',
   'SHERWINWILLIAMSCO': 'SHW',
+
+  // Resolve the remaining truncated/abbreviated names SEC's master file misses
+  'MACOMTECHSOLUTIONSHLDGSI': 'MTSI', 'MACOMTECHSOL': 'MTSI',
+  'COMFORTSYSUSAINC': 'FIX', 'COMFORTSYSUSA': 'FIX',
+  'ROBINHOODMKTSINC': 'HOOD', 'ROBINHOODMKTS': 'HOOD',
+  'INVESCOQQQTR': 'QQQ', 'INVESCOQQQ': 'QQQ',
+  'MONOLITHICPWRSYSINC': 'MPWR', 'MONOLITHICPWRSYS': 'MPWR', 'MONOLITHICPWR': 'MPWR',
+  'TSSINCDEL': 'TSSI',
+  'MODINEMFGCO': 'MOD', 'MODINEMFG': 'MOD',
+  'COREPOINTLODGINGINC': 'CPLG',
+  'LIBERTYENERGYINC': 'LBRT',
+  'PROPETROHLDGCORP': 'PUMP',
+  'BABCOCKWILCOXENTERPRISES': 'BW',
+  'POWERSOLUTIONSINTLINC': 'PSIX',
+  'EMCORGROUPINC': 'EME',
+  'ARGANINC': 'AGX',
+  'AAONINC': 'AAON',
+  'CIPHERMININGINC': 'CIFR',
+  'BKVCORP': 'BKV',
+  'WHITEFIBERINC': 'WYFI',
+  'NEBIUSGROUPNV': 'NBIS',
+  'COREWEAVEINC': 'CRWV',
+  'IRENLIMITED': 'IREN',
+  'APPLIEDDIGITALCORP': 'APLD',
+  'HUT8CORP': 'HUT',
+  'BITDEERTECHNOLOGIESGROUP': 'BTDR',
+  'TOWERSEMICONDUCTORLTD': 'TSEM',
+  'SOLARISENERGYINFRASINC': 'SEI',
+  'EATONCORPPLC': 'ETN',
+  'GEVERNOVAINC': 'GEV',
+  'CONSTELLATIONENERGYCORP': 'CEG',
+  'VERTIVHOLDINGSCO': 'VRT',
+  'ARMHOLDINGSPLC': 'ARM',
+  'ASTERALABSINC': 'ALAB',
+  'ADVANCEDMICRODEVICESINC': 'AMD',
+  'BLOOMENERGYCORP': 'BE',
+  'VISTRACORP': 'VST',
+  'NRGENERGYINC': 'NRG',
+  'EQTCORP': 'EQT',
+  'HALLADORENERGYCOMPANY': 'HNRG',
+  'TALENENERGYCORP': 'TLN',
+  'GALAXYDIGITALINC': 'GLXY',
 };
 
-const norm = (s) => (s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-
-// Try a series of progressively-shorter prefixes so SEC's truncation
-// (e.g., "ADVANCED ENERGY INDS" for "Advanced Energy Industries Inc")
-// still resolves cleanly.
-function resolveTicker(issuer) {
-  const n = norm(issuer);
-  if (ISSUER_TO_TICKER[n]) return ISSUER_TO_TICKER[n];
-  // Try stripping common suffixes
-  const trimmed = n.replace(/(INC|CORP|CORPORATION|LTD|LIMITED|PLC|HOLDINGS|HLDGS|HOLDING|GROUP|CO|COMPANY|NV|SA)$/g, '');
-  if (ISSUER_TO_TICKER[trimmed]) return ISSUER_TO_TICKER[trimmed];
-  // Fall back to a slug
-  return '?' + n.slice(0, 12);
-}
+// Resolver: hand-tuned overrides first, then SEC's master ticker file as fallback.
+const resolveTicker = makeResolver(ISSUER_TO_TICKER);
 
 // ----------------------------------------------------------------------------
 // SEC fetchers (mirror api/edgar.js)
@@ -266,7 +297,7 @@ function parseInfoTable(xml) {
 // ----------------------------------------------------------------------------
 // Build a fund object from a parsed 13F
 // ----------------------------------------------------------------------------
-function buildFundFromEntries(existing, entries, filingDate, periodOfReport) {
+async function buildFundFromEntries(existing, entries, filingDate, periodOfReport) {
   // Aggregate by issuer
   const agg = new Map();
   for (const e of entries) {
@@ -282,7 +313,7 @@ function buildFundFromEntries(existing, entries, filingDate, periodOfReport) {
   for (const [issuer, v] of agg.entries()) {
     const total = v.equity + v.calls + v.puts;
     if (total <= 0) continue;
-    const ticker = resolveTicker(issuer);
+    const ticker = await resolveTicker(issuer);
     positions.push({
       issuer, ticker,
       // Convert SEC dollars to $M to match spreadsheet convention
@@ -346,6 +377,15 @@ const htmlPath = 'index.html';
 const data = JSON.parse(readFileSync(dataPath, 'utf8'));
 
 console.log(`Refreshing ${targets.length} fund(s) from SEC EDGAR...\n`);
+
+// Warm the SEC company-tickers index so the first resolveTicker() call
+// doesn't pay the fetch cost.
+try {
+  const idx = await loadSecIndex();
+  console.log(`Loaded SEC ticker index: ${idx.size} name variants\n`);
+} catch (e) {
+  console.log(`Warning: SEC ticker index unavailable (${e.message}). Falling back to manual map only.\n`);
+}
 let touchedAny = false;
 for (const tgt of targets) {
   const fund = data.funds.find(f => f.shortLabel === tgt || f.name === tgt);
@@ -355,7 +395,7 @@ for (const tgt of targets) {
     const filing = await latest13F(fund.cik);
     const xml = await infoTableXml(fund.cik, filing.acc);
     const entries = parseInfoTable(xml);
-    const updated = buildFundFromEntries(fund, entries, filing.filingDate, filing.periodOfReport);
+    const updated = await buildFundFromEntries(fund, entries, filing.filingDate, filing.periodOfReport);
     Object.assign(fund, updated);
     console.log(`  ${tgt.padEnd(22)} -> filed ${filing.filingDate}, period ${filing.periodOfReport}, ${updated.numIssuers} issuers, $${updated.totalBn.toFixed(2)}B`);
     touchedAny = true;
