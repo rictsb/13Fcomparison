@@ -308,14 +308,25 @@ async function buildFundFromEntries(existing, entries, filingDate, periodOfRepor
     else if (e.putCall === 'Put') a.puts += e.value;
     else a.equity += e.value;
   }
+  // Keep the most-common CUSIP per issuer (some have multiple share classes;
+  // pick the one with the largest total $ value)
+  const cusipByIssuer = new Map();
+  for (const e of entries) {
+    if (!e.cusip) continue;
+    const issuer = e.issuer || '(unknown)';
+    const cur = cusipByIssuer.get(issuer);
+    if (!cur || e.value > cur.value) cusipByIssuer.set(issuer, { cusip: e.cusip, value: e.value });
+  }
   const positions = [];
   let totalAll = 0;
   for (const [issuer, v] of agg.entries()) {
     const total = v.equity + v.calls + v.puts;
     if (total <= 0) continue;
     const ticker = await resolveTicker(issuer);
+    const cusipEntry = cusipByIssuer.get(issuer);
     positions.push({
       issuer, ticker,
+      cusip: cusipEntry?.cusip || null,
       // Convert SEC dollars to $M to match spreadsheet convention
       equity: v.equity / 1e6,
       calls: v.calls / 1e6,
