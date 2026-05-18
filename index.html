@@ -945,7 +945,7 @@ function renderFundView(root, fundName) {
       <div class="stat"><div class="label">13F Total</div><div class="value">${fmtDollarsB(fund.totalBn)}</div></div>
       <div class="stat"><div class="label"># Issuers</div><div class="value">${fund.numIssuers}</div></div>
       <div class="stat"><div class="label">Top 10 conc.</div><div class="value small">${fmtPct(fund.top10Concentration, 0)}</div></div>
-      <div class="stat" id="growthStat"><div class="label">Equity Δ since ${period}</div><div class="value small" style="color:var(--text-faint)">—</div><div class="sub" style="font-size:10.5px">loading prices…</div></div>
+      <div class="stat" id="growthStat"><div class="label">Equity ${pickReturnWindow(period).label} return</div><div class="value small" style="color:var(--text-faint)">—</div><div class="sub" style="font-size:10.5px">loading prices…</div></div>
       <div class="stat" style="flex:1; min-width: 240px">
         <div class="label">Equity / Calls / Puts</div>
         <div class="stacked-bar" style="margin-top: 4px; height: 18px">
@@ -986,9 +986,11 @@ function renderFundView(root, fundName) {
   });
   drawFundTable(tableCard.querySelector('#fundTable'), fund);
 
-  // Kick off price fetch — re-render when it returns
+  // Kick off price fetch — re-render when it returns. STATE.route.arg is URL-encoded;
+  // fund.shortLabel isn't. Decode for the equality check.
   loadCurrentPricesForFund(fund).then(() => {
-    if (STATE.route.name !== 'fund' || STATE.route.arg !== fund.shortLabel) return;
+    const currentArg = decodeURIComponent(STATE.route.arg || '');
+    if (STATE.route.name !== 'fund' || currentArg !== fund.shortLabel) return;
     drawFundTable(tableCard.querySelector('#fundTable'), fund);
     updateGrowthStat(fund);
   });
@@ -996,6 +998,15 @@ function renderFundView(root, fundName) {
 
 // ---------------------------------------------------------------------------
 // Price helpers
+//
+// We use Finnhub's pre-computed price returns (13W / 26W / 52W) as a proxy
+// for "% change since reporting date." Finnhub's free tier doesn't expose
+// arbitrary historical close prices, so we pick the closest stock window
+// based on the fund's filing period:
+//   - Q1 2026 (period 2026-03-31): use 13W return  (actual gap is ~7w)
+//   - Q4 2025 (period 2025-12-31): use 26W return  (actual gap is ~20w)
+//   - older: fall back to 26W
+// The window used is shown in the column header and per-row tooltip.
 // ---------------------------------------------------------------------------
 async function loadCurrentPricesForFund(fund) {
   const tickers = [...new Set(fund.holdings.map(h => h.ticker).filter(t => /^[A-Z][A-Z0-9.\-]{0,6}$/.test(t)))];
@@ -1014,12 +1025,26 @@ async function loadCurrentPricesForFund(fund) {
   }
 }
 
+// Map a fund's period-of-report to the closest Finnhub return window.
+// Returns { field, label, windowDays } describing which metric to use.
+function pickReturnWindow(periodStr) {
+  const today = new Date();
+  const period = new Date(periodStr + 'T00:00:00Z');
+  const days = Math.max(1, Math.floor((today - period) / 86400000));
+  if (days <= 21)  return { field: 'return5D',  label: '5D',  windowDays: 5 };
+  if (days <= 75)  return { field: 'return13W', label: '13W', windowDays: 91 };
+  if (days <= 150) return { field: 'return26W', label: '26W', windowDays: 182 };
+  return { field: 'return52W', label: '52W', windowDays: 365 };
+}
+
 function pctSinceReport(fund, h) {
   const period = fund.periodOfReport || STATE.data.asOf;
-  const since = STATE.data.historicalPrices?.[period]?.[h.ticker]?.price;
-  const now = STATE.currentPrices?.[h.ticker]?.price;
-  if (!since || !now) return null;
-  return (now - since) / since;
+  const win = pickReturnWindow(period);
+  const p = STATE.currentPrices?.[h.ticker];
+  if (!p) return null;
+  const r = p[win.field];
+  if (r == null || isNaN(r)) return null;
+  return r / 100;  // Finnhub returns are in percent (e.g. 20.53 -> 0.2053)
 }
 
 // Fund-level aggregate — equity-weighted average price change.
@@ -1039,6 +1064,7 @@ function updateGrowthStat(fund) {
   const stat = document.getElementById('growthStat');
   if (!stat) return;
   const period = fund.periodOfReport || STATE.data.asOf;
+  const win = pickReturnWindow(period);
   const coverageEquity = fund.holdings.reduce((s, h) => s + (h.equity || 0), 0);
   const growth = fundEquityGrowth(fund);
   if (STATE.pricesError) {
@@ -1049,7 +1075,7 @@ function updateGrowthStat(fund) {
   }
   if (!growth) {
     stat.querySelector('.value').textContent = '—';
-    stat.querySelector('.sub').textContent = 'no baked since-prices · run scripts/refresh_prices.mjs';
+    stat.querySelector('.sub').textContent = 'no prices available · check FINNHUB_API_KEY env var';
     return;
   }
   const v = stat.querySelector('.value');
@@ -1057,7 +1083,7 @@ function updateGrowthStat(fund) {
   v.textContent = `${sign}${(growth.pct * 100).toFixed(1)}%`;
   v.style.color = growth.pct >= 0 ? 'var(--calls)' : 'var(--puts)';
   const cov = coverageEquity > 0 ? growth.coverage / coverageEquity : 0;
-  stat.querySelector('.sub').textContent = `equity-weighted · covers ${(cov * 100).toFixed(0)}% of $${fund.holdings.reduce((s,h)=>s+(h.equity||0),0).toFixed(0)}M`;
+  stat.querySelector('.sub').textContent = `equity-weighted ${win.label} return · covers ${(cov * 100).toFixed(0)}% of equity book`;
   stat.querySelector('.sub').style.color = 'var(--text-dim)';
 }
 
@@ -1097,18 +1123,18 @@ function holdingsTableHtml(rows, fund) {
   // Resolve fund (drawFundTable passes it; if not provided, find via shortLabel route)
   if (!fund) fund = findFund(STATE.route.arg);
   const period = fund?.periodOfReport || STATE.data.asOf;
+  const win = pickReturnWindow(period);
   const renderGrowth = (h) => {
     const pct = pctSinceReport(fund, h);
     if (pct == null) {
       if (STATE.pricesFetching) return '<span style="color:var(--text-faint)">…</span>';
-      return '<span style="color:var(--text-faint)" title="No baked since-price. Run scripts/refresh_prices.mjs">—</span>';
+      return '<span style="color:var(--text-faint)" title="No return data from Finnhub for this ticker">—</span>';
     }
     const sign = pct >= 0 ? '+' : '';
     const color = pct >= 0 ? 'var(--calls)' : 'var(--puts)';
-    const since = STATE.data.historicalPrices?.[period]?.[h.ticker];
-    const now = STATE.currentPrices?.[h.ticker];
-    const tip = since && now
-      ? `${since.asOf}: $${since.price.toFixed(2)} → ${now.asOf}: $${now.price.toFixed(2)}`
+    const p = STATE.currentPrices?.[h.ticker];
+    const tip = p
+      ? `${win.label} return (proxy for change since ${period}). Current price: $${p.price.toFixed(2)} as of ${p.asOf}`
       : '';
     return `<span style="color:${color}" title="${escapeAttr(tip)}">${sign}${(pct * 100).toFixed(1)}%</span>`;
   };
@@ -1118,7 +1144,7 @@ function holdingsTableHtml(rows, fund) {
       <th>#</th><th>Ticker</th><th>Issuer</th><th>Category</th>
       <th class="num">Equity</th><th class="num">Calls</th><th class="num">Puts</th>
       <th class="num">Total</th><th class="num">% of 13F</th>
-      <th class="num" title="Underlying price change from ${period} to today">Δ since ${period.slice(5)}</th>
+      <th class="num" title="${win.label} price return — proxy for change since ${period}. Finnhub's free tier doesn't expose arbitrary historical dates; this is the closest pre-computed window.">${win.label} return</th>
       <th style="width:80px">Allocation</th>
     </tr></thead>
     <tbody>
