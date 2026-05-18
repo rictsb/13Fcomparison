@@ -15,6 +15,8 @@
 //   - User-Agent must identify the requester (name + contact email)
 //   - Polite rate limiting (~150ms between requests)
 
+import { resolveCusips } from './lib/cusip_resolver.mjs';
+
 const SEC_USER_AGENT = process.env.SEC_USER_AGENT || '13F Tracker richard@taylor.st';
 
 // ---------------------------------------------------------------------------
@@ -221,6 +223,8 @@ function parseInfoTable(xml) {
 // ---------------------------------------------------------------------------
 function buildFundFromFiling(cik, meta, entries, filing) {
   const agg = new Map();
+  // Track the most-valuable CUSIP per issuer (share classes can have different CUSIPs)
+  const cusipByIssuer = new Map();
   for (const e of entries) {
     const key = e.nameOfIssuer || '(unknown)';
     if (!agg.has(key)) agg.set(key, { issuer: key, equity: 0, calls: 0, puts: 0 });
@@ -229,6 +233,10 @@ function buildFundFromFiling(cik, meta, entries, filing) {
     if (e.putCall === 'Call') a.calls += v;
     else if (e.putCall === 'Put') a.puts += v;
     else a.equity += v;
+    if (e.cusip) {
+      const cur = cusipByIssuer.get(key);
+      if (!cur || v > cur.value) cusipByIssuer.set(key, { cusip: e.cusip, value: v });
+    }
   }
 
   const positions = [];
@@ -239,12 +247,15 @@ function buildFundFromFiling(cik, meta, entries, filing) {
     const ticker = resolveTicker(v.issuer);
     positions.push({
       issuer: v.issuer, ticker,
+      cusip: cusipByIssuer.get(v.issuer)?.cusip || null,
       equity: v.equity / 1e6, calls: v.calls / 1e6, puts: v.puts / 1e6,
       total: total / 1e6,
     });
     totalAll += total;
   }
   positions.sort((a, b) => b.total - a.total);
+  // Cap at top 100 (matches refresh_funds.mjs — keeps market-maker hedging tails out)
+  if (positions.length > 100) positions.length = 100;
   positions.forEach((p, i) => {
     p.rank = i + 1;
     p.pct = totalAll > 0 ? (p.total * 1e6) / totalAll : 0;
@@ -328,6 +339,39 @@ export default async function handler(req, res) {
     }
     // Respect SEC's rate limit (≤10 req/sec)
     await new Promise(r => setTimeout(r, 150));
+  }
+
+  // Second pass: resolve "?" placeholder tickers via OpenFIGI CUSIP lookup.
+  // This is what makes newly-added funds come back with real tickers
+  // instead of ?ISHARESTR / ?VANECKETFTRU / etc.
+  if (fullMode) {
+    const unresolvedCusips = new Set();
+    for (const r of results) {
+      if (!r.fund) continue;
+      for (const h of r.fund.holdings) {
+        if (h.ticker?.startsWith('?') && h.cusip) unresolvedCusips.add(h.cusip);
+      }
+    }
+    if (unresolvedCusips.size) {
+      try {
+        const cusipMap = await resolveCusips([...unresolvedCusips]);
+        for (const r of results) {
+          if (!r.fund) continue;
+          for (const h of r.fund.holdings) {
+            if (h.ticker?.startsWith('?') && h.cusip) {
+              const hit = cusipMap[h.cusip];
+              if (hit?.ticker) {
+                h.ticker = String(hit.ticker).toUpperCase();
+                h.category = getCategory(h.ticker);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // OpenFIGI failed — keep placeholders, the client still gets the fund
+        console.warn('OpenFIGI resolution failed:', e.message);
+      }
+    }
   }
 
   res.setHeader('Cache-Control', 'no-store');

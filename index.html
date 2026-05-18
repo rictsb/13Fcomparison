@@ -1042,30 +1042,34 @@ function renderFundSnapshot({ editable = false } = {}) {
     <div class="right" style="display:flex; gap:8px; align-items:center">${filersN} filers · ${nonFilersN} non-filers${STATE.hiddenCiks.size ? ` · <span style="color:var(--text-faint)">${STATE.hiddenCiks.size} hidden</span>` : ''} ${headerControls}</div></div>`;
   const grid = document.createElement('div');
   grid.className = 'fund-card-list';
+  // Append an X-remove badge *after* innerHTML so it doesn't get wiped
+  const attachRemoveX = (cardEl, fund) => {
+    if (!editable || !STATE.editMode) return;
+    const x = document.createElement('div');
+    x.className = 'remove-x';
+    x.textContent = '×';
+    x.title = 'Hide this fund';
+    x.onclick = (e) => {
+      e.stopPropagation();
+      if (!fund.cik) return;
+      STATE.hiddenCiks.add(fund.cik);
+      persistCustomizations();
+      render();
+    };
+    cardEl.appendChild(x);
+  };
+
   for (const f of funds) {
     const c = document.createElement('div');
     c.className = 'fund-card' + (f.isReference ? ' sa' : '') + (editable && STATE.editMode ? ' editable' : '');
     c.style.position = 'relative';
-    if (editable && STATE.editMode) {
-      const x = document.createElement('div');
-      x.className = 'remove-x';
-      x.textContent = '×';
-      x.title = 'Hide this fund';
-      x.onclick = (e) => {
-        e.stopPropagation();
-        if (!f.cik) return;
-        STATE.hiddenCiks.add(f.cik);
-        persistCustomizations();
-        render();
-      };
-      c.appendChild(x);
-    }
     if (!f.hasHoldings) {
       c.innerHTML = `
         <h4>${f.name} ${f.isReference ? '<span class="badge sa">REF</span>' : ''}</h4>
         <div class="manager">${f.manager}</div>
         <div style="font-size: 11px; color: var(--text-faint); padding: 6px 0">No standalone 13F filing.</div>
         <div style="font-size: 11px; color: var(--text-dim); margin-top:4px">${f.thesis || ''}</div>`;
+      attachRemoveX(c, f);
       grid.appendChild(c);
       continue;
     }
@@ -1127,6 +1131,7 @@ function renderFundSnapshot({ editable = false } = {}) {
           ${returnRows}
         </div>
       </div>`;
+    attachRemoveX(c, f);
     // Card click navigates to fund, but ticker clicks open the drawer
     c.onclick = (e) => {
       const row = e.target.closest('.mini-row[data-ticker]');
