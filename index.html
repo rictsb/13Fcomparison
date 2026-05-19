@@ -125,6 +125,23 @@ nav.tabs a.active { color: var(--text); background: var(--bg-elev2); }
 .btn.primary { background: var(--accent); color: #0c0f14; border-color: var(--accent); font-weight: 600; }
 .btn.primary:hover { filter: brightness(1.1); }
 
+.min-pct-toggle {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11px; color: var(--text-dim);
+}
+.min-pct-toggle select {
+  background: var(--bg-elev2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 11px;
+  padding: 4px 6px;
+  cursor: pointer;
+  outline: none;
+}
+.min-pct-toggle select:focus { border-color: var(--accent); }
+
 .main {
   padding: 18px 24px 80px;
   max-width: 1500px;
@@ -619,6 +636,16 @@ tbody td.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums
     <a data-route="#/funds">Funds</a>
     <a data-route="#/compare">Compare</a>
   </nav>
+  <label class="min-pct-toggle" title="Hide positions smaller than this share of a fund's 13F">
+    <span>Min %</span>
+    <select id="minPctSelect">
+      <option value="0">All</option>
+      <option value="0.005">≥ 0.5%</option>
+      <option value="0.01">≥ 1%</option>
+      <option value="0.02">≥ 2%</option>
+      <option value="0.05">≥ 5%</option>
+    </select>
+  </label>
   <div class="search">
     <input id="searchInput" type="text" placeholder="Search ticker or fund…" autocomplete="off" />
     <div class="search-results" id="searchResults"></div>
@@ -676,7 +703,17 @@ const STATE = {
   customFunds: JSON.parse(localStorage.getItem('customFunds') || '[]'),
   fundsView: localStorage.getItem('fundsView') || 'cards', // 'cards' | 'list'
   fundsListSort: JSON.parse(localStorage.getItem('fundsListSort') || '{"col":"totalBn","dir":"desc"}'),
+  // Global filter: hide positions below this fraction of a fund's 13F.
+  // 0.01 (1%) by default; user can flip via the topbar toggle.
+  minPositionPct: parseFloat(localStorage.getItem('minPositionPct') || '0.01'),
+  // Sortable dashboard tables (Top names / High-conviction / Outsize bets)
+  dashSort: JSON.parse(localStorage.getItem('dashSort') || '{}'),
 };
+
+// Returns true if the holding should be shown given the current min-position filter.
+function passesMinPct(h) {
+  return (h.pct || 0) >= STATE.minPositionPct;
+}
 
 function persistCustomizations() {
   try {
@@ -684,6 +721,8 @@ function persistCustomizations() {
     localStorage.setItem('customFunds', JSON.stringify(STATE.customFunds));
     localStorage.setItem('fundsView', STATE.fundsView);
     localStorage.setItem('fundsListSort', JSON.stringify(STATE.fundsListSort));
+    localStorage.setItem('minPositionPct', String(STATE.minPositionPct));
+    localStorage.setItem('dashSort', JSON.stringify(STATE.dashSort));
   } catch (_) {}
 }
 
@@ -773,12 +812,39 @@ function median(arr) {
 }
 
 // Build ticker index: { ticker -> [{fund, holding}] }
+// ---------------------------------------------------------------------------
+// Reusable sortable-header helpers for the dashboard tables.
+// ---------------------------------------------------------------------------
+function sortableTh(col, label, isNum, tableId) {
+  const cur = STATE.dashSort[tableId] || {};
+  const active = cur.col === col;
+  const arrow = active ? (cur.dir === 'asc' ? '▲' : '▼') : '';
+  const cls = `sortable${isNum ? ' num' : ''}${active ? ' sort-active' : ''}`;
+  return `<th class="${cls}" data-sort="${col}" style="cursor:pointer; user-select:none">${label}${arrow ? `<span style="color:var(--accent); margin-left:4px">${arrow}</span>` : ''}</th>`;
+}
+function wireSortHeaders(tableEl, tableId, defaultSort, onChange) {
+  tableEl.querySelectorAll('th.sortable[data-sort]').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.dataset.sort;
+      const cur = STATE.dashSort[tableId] || defaultSort;
+      const numericCol = th.classList.contains('num');
+      let next;
+      if (cur.col === col) next = { col, dir: cur.dir === 'asc' ? 'desc' : 'asc' };
+      else next = { col, dir: numericCol ? 'desc' : 'asc' };
+      STATE.dashSort[tableId] = next;
+      persistCustomizations();
+      onChange();
+    });
+  });
+}
+
 let TICKER_INDEX = null;
 function buildTickerIndex() {
   if (TICKER_INDEX) return TICKER_INDEX;
   TICKER_INDEX = new Map();
   for (const f of fundsWithHoldings()) {
     for (const h of f.holdings) {
+      if (!passesMinPct(h)) continue;  // apply global min-position filter
       if (!TICKER_INDEX.has(h.ticker)) TICKER_INDEX.set(h.ticker, []);
       TICKER_INDEX.get(h.ticker).push({ fund: f, holding: h });
     }
@@ -853,39 +919,49 @@ function renderTopNamesCard() {
   const card = document.createElement('div');
   card.className = 'card';
   card.innerHTML = `<div class="card-header"><h2>Top names across all funds</h2>
-    <div class="right">Ranked by (# of funds holding) × (median % allocation when held)</div></div>`;
+    <div class="right">Click any header to sort · default = (# funds) × (median %)</div></div>
+    <div id="topNamesBody"></div>`;
 
-  const idx = buildTickerIndex();
-  const rows = [];
-  for (const [ticker, list] of idx.entries()) {
-    const cat = list[0].holding.category;
-    if (STATE.filterCategory && cat !== STATE.filterCategory) continue;
-    const pcts = list.map(x => x.holding.pct);
-    const med = median(pcts);
-    const maxObj = list.reduce((a, b) => b.holding.pct > a.holding.pct ? b : a);
-    rows.push({
-      ticker,
-      issuer: list[0].holding.issuer,
-      category: cat,
-      numFunds: list.length,
-      medianPct: med,
-      maxPct: maxObj.holding.pct,
-      maxFund: maxObj.fund.shortLabel,
-      score: list.length * med,
+  const draw = () => {
+    const idx = buildTickerIndex();
+    const rows = [];
+    for (const [ticker, list] of idx.entries()) {
+      const cat = list[0].holding.category;
+      if (STATE.filterCategory && cat !== STATE.filterCategory) continue;
+      const pcts = list.map(x => x.holding.pct);
+      const med = median(pcts);
+      const maxObj = list.reduce((a, b) => b.holding.pct > a.holding.pct ? b : a);
+      rows.push({
+        ticker, issuer: list[0].holding.issuer, category: cat,
+        numFunds: list.length, medianPct: med,
+        maxPct: maxObj.holding.pct, maxFund: maxObj.fund.shortLabel,
+        score: list.length * med,
+      });
+    }
+    const sort = STATE.dashSort.topNames || { col: 'score', dir: 'desc' };
+    const dir = sort.dir === 'asc' ? 1 : -1;
+    rows.sort((a, b) => {
+      switch (sort.col) {
+        case 'ticker':    return a.ticker.localeCompare(b.ticker) * dir;
+        case 'category':  return a.category.localeCompare(b.category) * dir;
+        case 'numFunds':  return (a.numFunds - b.numFunds) * dir;
+        case 'medianPct': return (a.medianPct - b.medianPct) * dir;
+        case 'maxPct':    return (a.maxPct - b.maxPct) * dir;
+        case 'maxFund':   return a.maxFund.localeCompare(b.maxFund) * dir;
+        case 'score':
+        default:          return (a.score - b.score) * dir;
+      }
     });
-  }
-  rows.sort((a, b) => b.score - a.score);
-  const top = rows.slice(0, 30);
-
-  const tableHtml = `
-    <table>
+    const top = rows.slice(0, 30);
+    const th = (col, label, num) => sortableTh(col, label, num, 'topNames');
+    const tableHtml = `<table>
       <thead><tr>
-        <th>Ticker</th>
-        <th>Category</th>
-        <th class="num"># Funds</th>
-        <th class="num">Median %</th>
-        <th class="num">Max %</th>
-        <th>Max holder</th>
+        ${th('ticker','Ticker',false)}
+        ${th('category','Category',false)}
+        ${th('numFunds','# Funds',true)}
+        ${th('medianPct','Median %',true)}
+        ${th('maxPct','Max %',true)}
+        ${th('maxFund','Max holder',false)}
       </tr></thead>
       <tbody>
       ${top.map(r => `
@@ -897,74 +973,93 @@ function renderTopNamesCard() {
           <td class="num">${fmtPct(r.maxPct)}</td>
           <td data-fund="${escapeAttr(r.maxFund)}" style="color:var(--text-dim); cursor:pointer">${r.maxFund}</td>
         </tr>`).join('')}
-      </tbody>
-    </table>`;
-  const wrap = document.createElement('div');
-  wrap.innerHTML = tableHtml;
-  card.appendChild(wrap);
-
-  // Wire row click → ticker drawer
-  wrap.querySelectorAll('tbody tr').forEach(tr => {
-    tr.addEventListener('click', e => {
-      const fundCell = e.target.closest('td[data-fund]');
-      if (fundCell) { e.stopPropagation(); navigateToFund(fundCell.dataset.fund); return; }
-      openTickerDrawer(tr.dataset.ticker);
+      </tbody></table>`;
+    const body = card.querySelector('#topNamesBody');
+    body.innerHTML = tableHtml;
+    wireSortHeaders(body.querySelector('table'), 'topNames', { col: 'score', dir: 'desc' }, draw);
+    body.querySelectorAll('tbody tr').forEach(tr => {
+      tr.addEventListener('click', e => {
+        const fundCell = e.target.closest('td[data-fund]');
+        if (fundCell) { e.stopPropagation(); navigateToFund(fundCell.dataset.fund); return; }
+        openTickerDrawer(tr.dataset.ticker);
+      });
     });
-  });
-
+  };
+  draw();
   return card;
 }
 
-// "High-conviction positions"
+// "High-conviction positions" — a single flat sortable table (was previously
+// grouped by fund). One row per qualifying position.
 function renderHighConvictionCard() {
   const card = document.createElement('div');
   card.className = 'card';
   card.innerHTML = `<div class="card-header"><h2>High-conviction positions</h2>
-    <div class="right">> 5% of 13F OR options notional > 50% of position</div></div>`;
+    <div class="right">> 5% of 13F OR options notional > 50% of position · click to sort</div></div>
+    <div id="hcBody"></div>`;
 
-  const byFund = {};
-  for (const f of fundsWithHoldings()) {
-    const matches = [];
-    for (const h of f.holdings) {
-      if (STATE.filterCategory && h.category !== STATE.filterCategory) continue;
-      const optShare = h.total > 0 ? (h.calls + h.puts) / h.total : 0;
-      if (h.pct > 0.05 || optShare > 0.5) {
-        matches.push({ ...h, optShare, reason: h.pct > 0.05 ? 'size' : 'leverage' });
+  const draw = () => {
+    const rows = [];
+    for (const f of fundsWithHoldings()) {
+      for (const h of f.holdings) {
+        if (STATE.filterCategory && h.category !== STATE.filterCategory) continue;
+        const optShare = h.total > 0 ? (h.calls + h.puts) / h.total : 0;
+        if (h.pct > 0.05 || optShare > 0.5) {
+          rows.push({
+            ticker: h.ticker, issuer: h.issuer, category: h.category,
+            fund: f.shortLabel, isRef: f.isReference,
+            pct: h.pct, optShare, calls: h.calls, puts: h.puts,
+            reason: h.pct > 0.05 ? 'size' : 'leverage',
+          });
+        }
       }
     }
-    if (matches.length) byFund[f.shortLabel] = matches;
-  }
-
-  let html = '';
-  for (const fund of Object.keys(byFund)) {
-    const isSA = fund === 'Situational Awareness';
-    html += `<div class="section">
-      <div class="section-title">
-        <span class="ticker" data-fund="${escapeAttr(fund)}" style="cursor:pointer">${fund}</span>
-        ${isSA ? '<span class="badge sa">REF</span>' : ''}
-      </div>
-      <table>
-        <thead><tr><th>Ticker</th><th>Category</th><th class="num">% of 13F</th><th class="num">Opt %</th><th>Tag</th></tr></thead>
-        <tbody>
-        ${byFund[fund].sort((a,b)=>b.pct-a.pct).map(h => `
-          <tr data-ticker="${h.ticker}">
-            <td><span class="ticker">${h.ticker}</span>${h.calls > 0 ? '<span class="badge calls">C</span>' : ''}${h.puts > 0 ? '<span class="badge puts">P</span>' : ''}</td>
-            <td><span class="cat-chip"><span class="swatch" style="background:${catColor(h.category)}"></span>${h.category}</span></td>
-            <td class="num">${fmtPct(h.pct)}</td>
-            <td class="num">${fmtPct(h.optShare)}</td>
-            <td>${h.reason === 'size' ? '<span class="badge high">SIZE</span>' : '<span class="badge calls">LEV</span>'}</td>
-          </tr>`).join('')}
-        </tbody>
-      </table>
-    </div>`;
-  }
-  if (!html) html = '<div class="empty">No high-conviction positions match the current filter.</div>';
-  const wrap = document.createElement('div');
-  wrap.innerHTML = html;
-  card.appendChild(wrap);
-
-  wrap.querySelectorAll('tbody tr').forEach(tr => tr.addEventListener('click', () => openTickerDrawer(tr.dataset.ticker)));
-  wrap.querySelectorAll('[data-fund]').forEach(el => el.addEventListener('click', () => navigateToFund(el.dataset.fund)));
+    const sort = STATE.dashSort.highConv || { col: 'pct', dir: 'desc' };
+    const dir = sort.dir === 'asc' ? 1 : -1;
+    rows.sort((a, b) => {
+      switch (sort.col) {
+        case 'fund':     return a.fund.localeCompare(b.fund) * dir;
+        case 'ticker':   return a.ticker.localeCompare(b.ticker) * dir;
+        case 'category': return a.category.localeCompare(b.category) * dir;
+        case 'optShare': return (a.optShare - b.optShare) * dir;
+        case 'pct':
+        default:         return (a.pct - b.pct) * dir;
+      }
+    });
+    const th = (col, label, num) => sortableTh(col, label, num, 'highConv');
+    const body = card.querySelector('#hcBody');
+    if (!rows.length) {
+      body.innerHTML = '<div class="empty">No high-conviction positions match the current filter.</div>';
+      return;
+    }
+    body.innerHTML = `<table>
+      <thead><tr>
+        ${th('fund','Fund',false)}
+        ${th('ticker','Ticker',false)}
+        ${th('category','Category',false)}
+        ${th('pct','% of 13F',true)}
+        ${th('optShare','Opt %',true)}
+        <th>Tag</th>
+      </tr></thead>
+      <tbody>
+      ${rows.map(r => `
+        <tr data-ticker="${r.ticker}">
+          <td data-fund="${escapeAttr(r.fund)}" style="cursor:pointer; color:var(--text)">${r.fund}${r.isRef ? '<span class="badge sa">REF</span>' : ''}</td>
+          <td><span class="ticker">${r.ticker}</span>${r.calls > 0 ? '<span class="badge calls">C</span>' : ''}${r.puts > 0 ? '<span class="badge puts">P</span>' : ''}</td>
+          <td><span class="cat-chip"><span class="swatch" style="background:${catColor(r.category)}"></span>${r.category}</span></td>
+          <td class="num">${fmtPct(r.pct)}</td>
+          <td class="num">${fmtPct(r.optShare)}</td>
+          <td>${r.reason === 'size' ? '<span class="badge high">SIZE</span>' : '<span class="badge calls">LEV</span>'}</td>
+        </tr>`).join('')}
+      </tbody></table>`;
+    wireSortHeaders(body.querySelector('table'), 'highConv', { col: 'pct', dir: 'desc' }, draw);
+    body.querySelectorAll('tbody tr').forEach(tr => tr.addEventListener('click', (e) => {
+      const fundCell = e.target.closest('td[data-fund]');
+      if (fundCell) { e.stopPropagation(); navigateToFund(fundCell.dataset.fund); return; }
+      openTickerDrawer(tr.dataset.ticker);
+    }));
+  };
+  draw();
   return card;
 }
 
@@ -973,58 +1068,75 @@ function renderOutsizeBetsCard() {
   const card = document.createElement('div');
   card.className = 'card';
   card.innerHTML = `<div class="card-header"><h2>Outsize bets</h2>
-    <div class="right">Allocations > 2× the median across ≥2-fund holders</div></div>`;
+    <div class="right">Allocations > 2× median · ≥2 holders · click to sort</div></div>
+    <div id="outsizeBody"></div>`;
 
-  const idx = buildTickerIndex();
-  const flags = [];
-  for (const [ticker, list] of idx.entries()) {
-    if (list.length < 2) continue;
-    const cat = list[0].holding.category;
-    if (STATE.filterCategory && cat !== STATE.filterCategory) continue;
-    const pcts = list.map(x => x.holding.pct);
-    const med = median(pcts);
-    if (med <= 0) continue;
-    for (const item of list) {
-      const ratio = item.holding.pct / med;
-      if (ratio > 2.0) {
-        flags.push({
-          ticker, category: cat,
-          fund: item.fund.shortLabel,
-          pct: item.holding.pct,
-          medianPct: med,
-          ratio,
-        });
+  const draw = () => {
+    const idx = buildTickerIndex();
+    const flags = [];
+    for (const [ticker, list] of idx.entries()) {
+      if (list.length < 2) continue;
+      const cat = list[0].holding.category;
+      if (STATE.filterCategory && cat !== STATE.filterCategory) continue;
+      const pcts = list.map(x => x.holding.pct);
+      const med = median(pcts);
+      if (med <= 0) continue;
+      for (const item of list) {
+        const ratio = item.holding.pct / med;
+        if (ratio > 2.0) {
+          flags.push({ ticker, category: cat, fund: item.fund.shortLabel,
+            pct: item.holding.pct, medianPct: med, ratio });
+        }
       }
     }
-  }
-  flags.sort((a, b) => b.ratio - a.ratio);
-
-  let html = '';
-  if (!flags.length) {
-    html = '<div class="empty">No outsize bets match the current filter.</div>';
-  } else {
-    html = `<table>
-      <thead><tr><th>Ticker</th><th>Fund</th><th class="num">Their %</th><th class="num">Median %</th><th class="num">Ratio</th></tr></thead>
-      <tbody>
-      ${flags.slice(0, 25).map(r => `
-        <tr data-ticker="${r.ticker}">
-          <td><span class="ticker">${r.ticker}</span></td>
-          <td data-fund="${escapeAttr(r.fund)}" style="cursor:pointer">${r.fund}</td>
-          <td class="num">${fmtPct(r.pct)}</td>
-          <td class="num">${fmtPct(r.medianPct)}</td>
-          <td class="num" style="color:${r.ratio > 4 ? 'var(--puts)' : 'var(--sa)'}">${r.ratio.toFixed(1)}×</td>
-        </tr>`).join('')}
-      </tbody></table>`;
-  }
-  const wrap = document.createElement('div');
-  wrap.innerHTML = html;
-  card.appendChild(wrap);
-
-  wrap.querySelectorAll('tbody tr').forEach(tr => tr.addEventListener('click', e => {
-    const fundCell = e.target.closest('td[data-fund]');
-    if (fundCell) { e.stopPropagation(); navigateToFund(fundCell.dataset.fund); return; }
-    openTickerDrawer(tr.dataset.ticker);
-  }));
+    const sort = STATE.dashSort.outsize || { col: 'ratio', dir: 'desc' };
+    const dir = sort.dir === 'asc' ? 1 : -1;
+    flags.sort((a, b) => {
+      switch (sort.col) {
+        case 'ticker':    return a.ticker.localeCompare(b.ticker) * dir;
+        case 'fund':      return a.fund.localeCompare(b.fund) * dir;
+        case 'pct':       return (a.pct - b.pct) * dir;
+        case 'medianPct': return (a.medianPct - b.medianPct) * dir;
+        case 'ratio':
+        default:          return (a.ratio - b.ratio) * dir;
+      }
+    });
+    const th = (col, label, num) => sortableTh(col, label, num, 'outsize');
+    let html;
+    if (!flags.length) {
+      html = '<div class="empty">No outsize bets match the current filter.</div>';
+    } else {
+      html = `<table>
+        <thead><tr>
+          ${th('ticker','Ticker',false)}
+          ${th('fund','Fund',false)}
+          ${th('pct','Their %',true)}
+          ${th('medianPct','Median %',true)}
+          ${th('ratio','Ratio',true)}
+        </tr></thead>
+        <tbody>
+        ${flags.slice(0, 25).map(r => `
+          <tr data-ticker="${r.ticker}">
+            <td><span class="ticker">${r.ticker}</span></td>
+            <td data-fund="${escapeAttr(r.fund)}" style="cursor:pointer">${r.fund}</td>
+            <td class="num">${fmtPct(r.pct)}</td>
+            <td class="num">${fmtPct(r.medianPct)}</td>
+            <td class="num" style="color:${r.ratio > 4 ? 'var(--puts)' : 'var(--sa)'}">${r.ratio.toFixed(1)}×</td>
+          </tr>`).join('')}
+        </tbody></table>`;
+    }
+    const body = card.querySelector('#outsizeBody');
+    body.innerHTML = html;
+    if (flags.length) {
+      wireSortHeaders(body.querySelector('table'), 'outsize', { col: 'ratio', dir: 'desc' }, draw);
+    }
+    body.querySelectorAll('tbody tr').forEach(tr => tr.addEventListener('click', e => {
+      const fundCell = e.target.closest('td[data-fund]');
+      if (fundCell) { e.stopPropagation(); navigateToFund(fundCell.dataset.fund); return; }
+      openTickerDrawer(tr.dataset.ticker);
+    }));
+  };
+  draw();
   return card;
 }
 
@@ -1631,7 +1743,7 @@ function updateGrowthStat(fund) {
 }
 
 function drawFundTable(container, fund) {
-  let holdings = [...fund.holdings].sort((a, b) => b.pct - a.pct);
+  let holdings = fund.holdings.filter(passesMinPct).sort((a, b) => b.pct - a.pct);
   if (STATE.fundViewMode === 'top10') holdings = holdings.slice(0, 10);
 
   if (STATE.fundViewMode === 'byCategory') {
@@ -1764,6 +1876,7 @@ function renderCompare(root) {
     const totals = {};
     let grand = 0;
     for (const h of f.holdings) {
+      if (!passesMinPct(h)) continue;
       totals[h.category] = (totals[h.category] || 0) + h.pct;
       grand += h.pct;
     }
@@ -2378,6 +2491,18 @@ function renderSearchIndex() {
 }
 
 function setupEvents() {
+  // Min-position-pct selector — global filter
+  const minSel = document.getElementById('minPctSelect');
+  if (minSel) {
+    minSel.value = String(STATE.minPositionPct);
+    minSel.addEventListener('change', () => {
+      STATE.minPositionPct = parseFloat(minSel.value);
+      persistCustomizations();
+      TICKER_INDEX = null;
+      render();
+    });
+  }
+
   const inp = document.getElementById('searchInput');
   const out = document.getElementById('searchResults');
   inp.addEventListener('input', () => {
