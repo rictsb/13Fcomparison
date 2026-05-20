@@ -41,7 +41,7 @@
       "optionsHeavy": true,
       "top10Concentration": 0.8294034803559225,
       "filingDate": "2026-05-18",
-      "thesis": "Reference fund — pure-play AI infra bottlenecks: power, neoclouds, NAND/HBM memory, optics, miners pivoting to AI hosting",
+      "thesis": "Reference fund \u2014 pure-play AI infra bottlenecks: power, neoclouds, NAND/HBM memory, optics, miners pivoting to AI hosting",
       "rank": null,
       "isReference": true,
       "holdings": [
@@ -1223,7 +1223,7 @@
           "puts": 0,
           "total": 0.453034,
           "rank": 60,
-          "pct": 0.00002187778716804364,
+          "pct": 2.187778716804364e-05,
           "category": "Other",
           "tickerInSheet": false
         }
@@ -1232,7 +1232,7 @@
       "periodOfReport": "2026-03-31",
       "sourceTag": "edgar",
       "domain": "vara.com",
-      "logo": "https://logo.clearbit.com/vara.com?size=400"
+      "logo": "https://www.google.com/s2/favicons?domain=vara.com&sz=128"
     },
     {
       "name": "Light Street Capital",
@@ -1556,7 +1556,7 @@
       "periodOfReport": "2026-03-31",
       "sourceTag": "edgar",
       "domain": "lightstreet.com",
-      "logo": "https://logo.clearbit.com/lightstreet.com?size=400"
+      "logo": "https://www.google.com/s2/favicons?domain=lightstreet.com&sz=128"
     },
     {
       "name": "Coatue Management",
@@ -2248,7 +2248,7 @@
           "puts": 0,
           "total": 2.815095,
           "rank": 52,
-          "pct": 0.00009688504842420013,
+          "pct": 9.688504842420013e-05,
           "category": "Other",
           "tickerInSheet": false
         },
@@ -2261,7 +2261,7 @@
           "puts": 0,
           "total": 2.582823,
           "rank": 53,
-          "pct": 0.00008889111430560526,
+          "pct": 8.889111430560526e-05,
           "category": "Other",
           "tickerInSheet": false
         },
@@ -2274,7 +2274,7 @@
           "puts": 0,
           "total": 2.567885,
           "rank": 54,
-          "pct": 0.00008837700417668929,
+          "pct": 8.837700417668929e-05,
           "category": "Other",
           "tickerInSheet": false
         },
@@ -2287,7 +2287,7 @@
           "puts": 0,
           "total": 2.434085,
           "rank": 55,
-          "pct": 0.0000837721082569573,
+          "pct": 8.37721082569573e-05,
           "category": "Other",
           "tickerInSheet": false
         },
@@ -2300,7 +2300,7 @@
           "puts": 0,
           "total": 1.56135,
           "rank": 56,
-          "pct": 0.000053735831422074525,
+          "pct": 5.3735831422074525e-05,
           "category": "Other",
           "tickerInSheet": false
         },
@@ -2313,7 +2313,7 @@
           "puts": 0,
           "total": 0.748858,
           "rank": 57,
-          "pct": 0.000025772893487732978,
+          "pct": 2.5772893487732978e-05,
           "category": "Other",
           "tickerInSheet": false
         },
@@ -2326,7 +2326,7 @@
           "puts": 0,
           "total": 0.240925,
           "rank": 58,
-          "pct": 0.000008291738037828357,
+          "pct": 8.291738037828357e-06,
           "category": "Other",
           "tickerInSheet": false
         },
@@ -2339,7 +2339,7 @@
           "puts": 0,
           "total": 0.223573,
           "rank": 59,
-          "pct": 0.000007694547051287326,
+          "pct": 7.694547051287326e-06,
           "category": "Other",
           "tickerInSheet": false
         }
@@ -2348,7 +2348,7 @@
       "periodOfReport": "2026-03-31",
       "sourceTag": "edgar",
       "domain": "coatue.com",
-      "logo": "https://logo.clearbit.com/coatue.com?size=400"
+      "logo": "https://www.google.com/s2/favicons?domain=coatue.com&sz=128"
     },
     {
       "name": "Altimeter Capital",
@@ -2533,7 +2533,7 @@
           "puts": 0,
           "total": 0.26265,
           "rank": 13,
-          "pct": 0.00004608470618607139,
+          "pct": 4.608470618607139e-05,
           "category": "Other",
           "tickerInSheet": false
         }
@@ -2542,7 +2542,7 @@
       "periodOfReport": "2026-03-31",
       "sourceTag": "edgar",
       "domain": "altimeter.com",
-      "logo": "https://logo.clearbit.com/altimeter.com?size=400"
+      "logo": "https://www.google.com/s2/favicons?domain=altimeter.com&sz=128"
     },
     {
       "name": "Tiger Global Management",
@@ -2558,7 +2558,7 @@
       "optionsHeavy": false,
       "top10Concentration": 0.6949210997809675,
       "filingDate": "2026-05-15",
-      "thesis": "Tiger Cub. First quarter in 13 quarters where META/MSFT wasn't #1 — now GOOGL. Trimmed NVDA/TSM",
+      "thesis": "Tiger Cub. First quarter in 13 quarters where META/MSFT wasn't #1 \u2014 now GOOGL. Trimmed NVDA/TSM",
       "rank": 7,
       "isReference": false,
       "holdings": [
@@ -3208,7 +3208,7 @@
           "puts": 0,
           "total": 1.2684,
           "rank": 50,
-          "pct": 0.00005552099031753547,
+          "pct": 5.552099031753547e-05,
           "category": "Other",
           "tickerInSheet": false
         },
@@ -3221,7 +3221,7 @@
           "puts": 0,
           "total": 1.002,
           "rank": 51,
-          "pct": 0.00004386000654223474,
+          "pct": 4.386000654223474e-05,
           "category": "Other",
           "tickerInSheet": false
         },
@@ -3234,7 +3234,7 @@
           "puts": 0,
           "total": 0.3094,
           "rank": 52,
-          "pct": 0.000013543199624917593,
+          "pct": 1.3543199624917593e-05,
           "category": "Other",
           "tickerInSheet": false
         },
@@ -3247,7 +3247,7 @@
           "puts": 0,
           "total": 0.176,
           "rank": 53,
-          "pct": 0.000007703953244943427,
+          "pct": 7.703953244943427e-06,
           "category": "Other",
           "tickerInSheet": false
         }
@@ -3256,7 +3256,7 @@
       "periodOfReport": "2026-03-31",
       "sourceTag": "edgar",
       "domain": "tigerglobal.com",
-      "logo": "https://logo.clearbit.com/tigerglobal.com?size=400"
+      "logo": "https://www.google.com/s2/favicons?domain=tigerglobal.com&sz=128"
     },
     {
       "name": "Whale Rock Capital Management",
@@ -3736,7 +3736,7 @@
       "periodOfReport": "2026-03-31",
       "sourceTag": "edgar",
       "domain": "whalerockcap.com",
-      "logo": "https://logo.clearbit.com/whalerockcap.com?size=400"
+      "logo": "https://www.google.com/s2/favicons?domain=whalerockcap.com&sz=128"
     },
     {
       "name": "Lone Pine Capital",
@@ -4229,7 +4229,7 @@
       "periodOfReport": "2026-03-31",
       "sourceTag": "edgar",
       "domain": "lonepinecapital.com",
-      "logo": "https://logo.clearbit.com/lonepinecapital.com?size=400"
+      "logo": "https://www.google.com/s2/favicons?domain=lonepinecapital.com&sz=128"
     },
     {
       "name": "Maytree Asset Management Ltd",
@@ -4505,7 +4505,7 @@
           "puts": 0,
           "total": 0.001649,
           "rank": 20,
-          "pct": 0.000011657331187422966,
+          "pct": 1.1657331187422966e-05,
           "category": "Other",
           "tickerInSheet": false
         }
@@ -6256,7 +6256,7 @@
           "puts": 0,
           "total": 0.473339,
           "rank": 28,
-          "pct": 0.00009916790023981972,
+          "pct": 9.916790023981972e-05,
           "category": "Other",
           "tickerInSheet": false
         },
@@ -6269,7 +6269,7 @@
           "puts": 0,
           "total": 0.466655,
           "rank": 29,
-          "pct": 0.00009776755451465667,
+          "pct": 9.776755451465667e-05,
           "category": "Other",
           "tickerInSheet": false
         },
@@ -6282,7 +6282,7 @@
           "puts": 0,
           "total": 0.4501,
           "rank": 30,
-          "pct": 0.00009429916380848156,
+          "pct": 9.429916380848156e-05,
           "category": "AI software / hyperscaler",
           "tickerInSheet": false
         },
@@ -6295,7 +6295,7 @@
           "puts": 0,
           "total": 0.2122,
           "rank": 31,
-          "pct": 0.00004445741515254341,
+          "pct": 4.445741515254341e-05,
           "category": "Other",
           "tickerInSheet": false
         }
@@ -7159,7 +7159,7 @@
       "periodOfReport": "2026-03-31",
       "sourceTag": "edgar",
       "domain": "bluewhale.co.uk",
-      "logo": "https://logo.clearbit.com/bluewhale.co.uk?size=400"
+      "logo": "https://www.google.com/s2/favicons?domain=bluewhale.co.uk&sz=128"
     },
     {
       "name": "Styrax Capital LP",
@@ -8001,7 +8001,7 @@
       "periodOfReport": "2026-03-31",
       "sourceTag": "edgar",
       "domain": "analogcentury.com",
-      "logo": "https://logo.clearbit.com/analogcentury.com?size=400"
+      "logo": "https://www.google.com/s2/favicons?domain=analogcentury.com&sz=128"
     },
     {
       "name": "Avalon Global Asset Management LLC",
@@ -9194,7 +9194,7 @@
       "periodOfReport": "2026-03-31",
       "sourceTag": "edgar",
       "domain": "deepwatermgmt.com",
-      "logo": "https://logo.clearbit.com/deepwatermgmt.com?size=400"
+      "logo": "https://www.google.com/s2/favicons?domain=deepwatermgmt.com&sz=128"
     },
     {
       "name": "Dedeker Financial LLC",
@@ -10418,7 +10418,7 @@
           "puts": 0,
           "total": 0.028687,
           "rank": 61,
-          "pct": 0.00004343933051891939,
+          "pct": 4.343933051891939e-05,
           "category": "Other",
           "tickerInSheet": false
         }
@@ -10427,7 +10427,7 @@
       "periodOfReport": "2026-03-31",
       "sourceTag": "edgar",
       "domain": "arosacap.com",
-      "logo": "https://logo.clearbit.com/arosacap.com?size=400"
+      "logo": "https://www.google.com/s2/favicons?domain=arosacap.com&sz=128"
     },
     {
       "name": "PIAR LLC",
@@ -12635,7 +12635,7 @@
       "periodOfReport": "2026-03-31",
       "sourceTag": "edgar",
       "domain": "janestreet.com",
-      "logo": "https://logo.clearbit.com/janestreet.com?size=400"
+      "logo": "https://www.google.com/s2/favicons?domain=janestreet.com&sz=128"
     },
     {
       "name": "Atreides Management, LP",
@@ -13327,7 +13327,7 @@
           "puts": 0,
           "total": 0.239542,
           "rank": 52,
-          "pct": 0.000047887346385626376,
+          "pct": 4.7887346385626376e-05,
           "category": "Other",
           "tickerInSheet": false
         }
@@ -13336,13 +13336,13 @@
       "periodOfReport": "2026-03-31",
       "sourceTag": "edgar",
       "domain": "atreidesmgmt.com",
-      "logo": "https://logo.clearbit.com/atreidesmgmt.com?size=400"
+      "logo": "https://www.google.com/s2/favicons?domain=atreidesmgmt.com&sz=128"
     }
   ],
   "caveats": [
-    "13F shows US-listed longs only — no shorts, no foreign listings (SK Hynix, Samsung, Kioxia not visible), no privates.",
-    "Options reported at underlying notional, not premium paid — so options-heavy funds (SA, VARA) have inflated 13F totals vs. capital deployed.",
-    "Whale Rock AI Fund and Point72 Turion don't file standalone 13Fs — they roll up into parent filings."
+    "13F shows US-listed longs only \u2014 no shorts, no foreign listings (SK Hynix, Samsung, Kioxia not visible), no privates.",
+    "Options reported at underlying notional, not premium paid \u2014 so options-heavy funds (SA, VARA) have inflated 13F totals vs. capital deployed.",
+    "Whale Rock AI Fund and Point72 Turion don't file standalone 13Fs \u2014 they roll up into parent filings."
   ],
   "asOfByFund": {
     "Situational Awareness": "2026-03-31",

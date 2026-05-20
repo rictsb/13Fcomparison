@@ -70,7 +70,10 @@ for (const f of data.funds) {
 
   if (domain) {
     f.domain = domain;
-    f.logo = `https://logo.clearbit.com/${domain}?size=400`;
+    // Clearbit's free logo API was shut down after the HubSpot acquisition (2024).
+    // Google's faviconV2 endpoint serves 128px PNG favicons for nearly every
+    // domain at no cost and no auth — perfect for a low-opacity card background.
+    f.logo = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
     fetched++;
     console.log(`  ${f.shortLabel.padEnd(24)} -> ${domain}`);
   } else {
