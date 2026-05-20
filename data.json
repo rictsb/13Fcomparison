@@ -425,7 +425,9 @@
       ],
       "hasHoldings": true,
       "periodOfReport": "2026-03-31",
-      "sourceTag": "edgar"
+      "sourceTag": "edgar",
+      "domain": null,
+      "logo": null
     },
     {
       "name": "Value Aligned Research Advisors",
@@ -1228,7 +1230,9 @@
       ],
       "hasHoldings": true,
       "periodOfReport": "2026-03-31",
-      "sourceTag": "edgar"
+      "sourceTag": "edgar",
+      "domain": "vara.com",
+      "logo": "https://logo.clearbit.com/vara.com?size=400"
     },
     {
       "name": "Light Street Capital",
@@ -1550,7 +1554,9 @@
       ],
       "hasHoldings": true,
       "periodOfReport": "2026-03-31",
-      "sourceTag": "edgar"
+      "sourceTag": "edgar",
+      "domain": "lightstreet.com",
+      "logo": "https://logo.clearbit.com/lightstreet.com?size=400"
     },
     {
       "name": "Coatue Management",
@@ -2340,7 +2346,9 @@
       ],
       "hasHoldings": true,
       "periodOfReport": "2026-03-31",
-      "sourceTag": "edgar"
+      "sourceTag": "edgar",
+      "domain": "coatue.com",
+      "logo": "https://logo.clearbit.com/coatue.com?size=400"
     },
     {
       "name": "Altimeter Capital",
@@ -2532,7 +2540,9 @@
       ],
       "hasHoldings": true,
       "periodOfReport": "2026-03-31",
-      "sourceTag": "edgar"
+      "sourceTag": "edgar",
+      "domain": "altimeter.com",
+      "logo": "https://logo.clearbit.com/altimeter.com?size=400"
     },
     {
       "name": "Tiger Global Management",
@@ -3244,7 +3254,9 @@
       ],
       "hasHoldings": true,
       "periodOfReport": "2026-03-31",
-      "sourceTag": "edgar"
+      "sourceTag": "edgar",
+      "domain": "tigerglobal.com",
+      "logo": "https://logo.clearbit.com/tigerglobal.com?size=400"
     },
     {
       "name": "Whale Rock Capital Management",
@@ -3722,7 +3734,9 @@
       ],
       "hasHoldings": true,
       "periodOfReport": "2026-03-31",
-      "sourceTag": "edgar"
+      "sourceTag": "edgar",
+      "domain": "whalerockcap.com",
+      "logo": "https://logo.clearbit.com/whalerockcap.com?size=400"
     },
     {
       "name": "Lone Pine Capital",
@@ -4213,7 +4227,9 @@
       ],
       "hasHoldings": true,
       "periodOfReport": "2026-03-31",
-      "sourceTag": "edgar"
+      "sourceTag": "edgar",
+      "domain": "lonepinecapital.com",
+      "logo": "https://logo.clearbit.com/lonepinecapital.com?size=400"
     },
     {
       "name": "Maytree Asset Management Ltd",
@@ -4496,7 +4512,9 @@
       ],
       "hasHoldings": true,
       "periodOfReport": "2026-03-31",
-      "sourceTag": "edgar"
+      "sourceTag": "edgar",
+      "domain": null,
+      "logo": null
     },
     {
       "name": "Trivest Advisors Ltd",
@@ -4896,7 +4914,9 @@
       ],
       "hasHoldings": true,
       "periodOfReport": "2026-03-31",
-      "sourceTag": "edgar"
+      "sourceTag": "edgar",
+      "domain": null,
+      "logo": null
     },
     {
       "name": "Broad Peak Investment Advisers Pte Ltd",
@@ -5218,7 +5238,9 @@
       ],
       "hasHoldings": true,
       "periodOfReport": "2026-03-31",
-      "sourceTag": "edgar"
+      "sourceTag": "edgar",
+      "domain": null,
+      "logo": null
     },
     {
       "name": "CloudAlpha Capital Management Ltd",
@@ -5852,7 +5874,9 @@
       ],
       "hasHoldings": true,
       "periodOfReport": "2026-03-31",
-      "sourceTag": "edgar"
+      "sourceTag": "edgar",
+      "domain": null,
+      "logo": null
     },
     {
       "name": "WT Asset Management Ltd",
@@ -6278,7 +6302,9 @@
       ],
       "hasHoldings": true,
       "periodOfReport": "2026-03-31",
-      "sourceTag": "edgar"
+      "sourceTag": "edgar",
+      "domain": null,
+      "logo": null
     },
     {
       "name": "AI-Squared Management Ltd",
@@ -6548,7 +6574,9 @@
       ],
       "hasHoldings": true,
       "periodOfReport": "2026-03-31",
-      "sourceTag": "edgar"
+      "sourceTag": "edgar",
+      "domain": null,
+      "logo": null
     },
     {
       "name": "Anatole Investment Management Ltd",
@@ -6766,7 +6794,9 @@
       ],
       "hasHoldings": true,
       "periodOfReport": "2026-03-31",
-      "sourceTag": "edgar"
+      "sourceTag": "edgar",
+      "domain": null,
+      "logo": null
     },
     {
       "name": "Blue Whale Capital LLP",
@@ -7127,7 +7157,9 @@
       ],
       "hasHoldings": true,
       "periodOfReport": "2026-03-31",
-      "sourceTag": "edgar"
+      "sourceTag": "edgar",
+      "domain": "bluewhale.co.uk",
+      "logo": "https://logo.clearbit.com/bluewhale.co.uk?size=400"
     },
     {
       "name": "Styrax Capital LP",
@@ -7371,7 +7403,9 @@
       ],
       "hasHoldings": true,
       "periodOfReport": "2026-03-31",
-      "sourceTag": "edgar"
+      "sourceTag": "edgar",
+      "domain": null,
+      "logo": null
     },
     {
       "name": "Tensor Edge Capital LLC",
@@ -7615,7 +7649,9 @@
       ],
       "hasHoldings": true,
       "periodOfReport": "2026-03-31",
-      "sourceTag": "edgar"
+      "sourceTag": "edgar",
+      "domain": null,
+      "logo": null
     },
     {
       "name": "Analog Century Management LP",
@@ -7963,7 +7999,9 @@
       ],
       "hasHoldings": true,
       "periodOfReport": "2026-03-31",
-      "sourceTag": "edgar"
+      "sourceTag": "edgar",
+      "domain": "analogcentury.com",
+      "logo": "https://logo.clearbit.com/analogcentury.com?size=400"
     },
     {
       "name": "Avalon Global Asset Management LLC",
@@ -8441,7 +8479,9 @@
       ],
       "hasHoldings": true,
       "periodOfReport": "2026-03-31",
-      "sourceTag": "edgar"
+      "sourceTag": "edgar",
+      "domain": null,
+      "logo": null
     },
     {
       "name": "Elemental Capital Partners LLC",
@@ -8620,7 +8660,9 @@
       ],
       "hasHoldings": true,
       "periodOfReport": "2026-03-31",
-      "sourceTag": "edgar"
+      "sourceTag": "edgar",
+      "domain": null,
+      "logo": null
     },
     {
       "name": "Deepwater Asset Management LLC",
@@ -9150,7 +9192,9 @@
       ],
       "hasHoldings": true,
       "periodOfReport": "2026-03-31",
-      "sourceTag": "edgar"
+      "sourceTag": "edgar",
+      "domain": "deepwatermgmt.com",
+      "logo": "https://logo.clearbit.com/deepwatermgmt.com?size=400"
     },
     {
       "name": "Dedeker Financial LLC",
@@ -9563,7 +9607,9 @@
       ],
       "hasHoldings": true,
       "periodOfReport": "2026-03-31",
-      "sourceTag": "edgar"
+      "sourceTag": "edgar",
+      "domain": null,
+      "logo": null
     },
     {
       "name": "Arosa Capital Management LP",
@@ -10379,7 +10425,9 @@
       ],
       "hasHoldings": true,
       "periodOfReport": "2026-03-31",
-      "sourceTag": "edgar"
+      "sourceTag": "edgar",
+      "domain": "arosacap.com",
+      "logo": "https://logo.clearbit.com/arosacap.com?size=400"
     },
     {
       "name": "PIAR LLC",
@@ -11260,7 +11308,9 @@
       ],
       "hasHoldings": true,
       "periodOfReport": "2026-03-31",
-      "sourceTag": "edgar"
+      "sourceTag": "edgar",
+      "domain": null,
+      "logo": null
     },
     {
       "name": "Jane Street Group, LLC",
@@ -12583,7 +12633,9 @@
       ],
       "hasHoldings": true,
       "periodOfReport": "2026-03-31",
-      "sourceTag": "edgar"
+      "sourceTag": "edgar",
+      "domain": "janestreet.com",
+      "logo": "https://logo.clearbit.com/janestreet.com?size=400"
     },
     {
       "name": "Atreides Management, LP",
@@ -13282,7 +13334,9 @@
       ],
       "hasHoldings": true,
       "periodOfReport": "2026-03-31",
-      "sourceTag": "edgar"
+      "sourceTag": "edgar",
+      "domain": "atreidesmgmt.com",
+      "logo": "https://logo.clearbit.com/atreidesmgmt.com?size=400"
     }
   ],
   "caveats": [
