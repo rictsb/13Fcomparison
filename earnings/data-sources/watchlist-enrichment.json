@@ -345,17 +345,6 @@
       "historySource": "https://finance.yahoo.com/quote/AEIS/history/"
     },
     {
-      "ticker": "DRAM",
-      "date": null,
-      "status": "Not applicable",
-      "sourceCell": "O26",
-      "priorDate": null,
-      "historyStart": "2026-06-24",
-      "historyEnd": "2026-09-24",
-      "historyPoints": 65,
-      "historySource": "https://finance.yahoo.com/quote/DRAM/history/"
-    },
-    {
       "ticker": "AMAT",
       "date": "2026-11-12",
       "status": "Estimated",
@@ -607,17 +596,6 @@
       "historyEnd": "2026-09-24",
       "historyPoints": 65,
       "historySource": "https://finance.yahoo.com/quote/BW/history/"
-    },
-    {
-      "ticker": "AIPO",
-      "date": null,
-      "status": "Not applicable",
-      "sourceCell": "O52",
-      "priorDate": null,
-      "historyStart": "2026-06-24",
-      "historyEnd": "2026-09-24",
-      "historyPoints": 65,
-      "historySource": "https://finance.yahoo.com/quote/AIPO/history/"
     },
     {
       "ticker": "CCJ",
@@ -959,17 +937,6 @@
       "historyEnd": "2026-09-24",
       "historyPoints": 65,
       "historySource": "https://finance.yahoo.com/quote/CAMT/history/"
-    },
-    {
-      "ticker": "IBIT",
-      "date": null,
-      "status": "Not applicable",
-      "sourceCell": "O86",
-      "priorDate": null,
-      "historyStart": "2026-06-24",
-      "historyEnd": "2026-09-24",
-      "historyPoints": 65,
-      "historySource": "https://finance.yahoo.com/quote/IBIT/history/"
     },
     {
       "ticker": "ORCL",
@@ -1334,5 +1301,10 @@
       "historyPoints": 65,
       "historySource": "https://finance.yahoo.com/quote/TWLO/history/"
     }
+  ],
+  "excludedEtfs": [
+    "DRAM",
+    "AIPO",
+    "IBIT"
   ]
 }
