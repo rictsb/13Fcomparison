@@ -3,6 +3,7 @@ import express from 'express';
 // This existing Site owns the durable D1 rankings. Keep it deployed while the
 // Render-hosted earnings page uses this route; no extra Render disk is needed.
 const BOARDS_URL = 'https://earnings-desk-richard-dan.ricnyc.chatgpt.site/api/boards';
+const CANDIDATES_URL = 'https://earnings-desk-richard-dan.ricnyc.chatgpt.site/api/candidates';
 const BODY_LIMIT = 50_000;
 const unavailable = { error: 'Saved rankings are temporarily unavailable. Your draft is still on this page.' };
 
@@ -32,13 +33,21 @@ function isBoards(boards) {
   return boards && isBoard(boards.Richard, 'Richard') && isBoard(boards.Dan, 'Dan');
 }
 
-function isValidPayload(payload, method, status) {
+function isValidPayload(payload, method, status, kind) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return false;
   if (status >= 400 && status < 500) {
     return typeof payload.error === 'string' && payload.error.length > 0
       && (payload.boards === undefined || isBoards(payload.boards));
   }
   if (status !== 200) return false;
+  if (kind === 'candidates') {
+    const candidate = payload.candidate;
+    return candidate && typeof candidate === 'object' && !Array.isArray(candidate)
+      && typeof candidate.ticker === 'string' && candidate.ticker.length > 0
+      && typeof candidate.name === 'string' && candidate.name.length > 0
+      && typeof candidate.currency === 'string' && /^[A-Z]{3}$/.test(candidate.currency)
+      && typeof payload.created === 'boolean';
+  }
   return method === 'GET'
     ? isBoards(payload.boards)
     : ['Richard', 'Dan'].some(person => isBoard(payload.board, person));
@@ -47,16 +56,25 @@ function isValidPayload(payload, method, status) {
 // Only the fetch function and timeout are injectable for isolated tests. The
 // upstream URL cannot be changed by a request, query string, or environment var.
 export function createBoardsProxy({ fetchImpl = globalThis.fetch, timeoutMs = 15_000 } = {}) {
+  return createSharedProxy({ kind: 'boards', url: BOARDS_URL, methods: ['GET', 'PUT'], fetchImpl, timeoutMs });
+}
+
+export function createCandidatesProxy({ fetchImpl = globalThis.fetch, timeoutMs = 15_000 } = {}) {
+  return createSharedProxy({ kind: 'candidates', url: CANDIDATES_URL, methods: ['POST'], fetchImpl, timeoutMs });
+}
+
+function createSharedProxy({ kind, url, methods, fetchImpl, timeoutMs }) {
   const router = express.Router();
+  const isCandidates = kind === 'candidates';
 
   router.all('/', (req, res, next) => {
     res.set('Cache-Control', 'no-store, max-age=0');
-    if (req.method !== 'GET' && req.method !== 'PUT') {
-      res.set('Allow', 'GET, PUT');
-      return res.status(405).json({ error: 'Use GET or PUT for rankings.' });
+    if (!methods.includes(req.method)) {
+      res.set('Allow', methods.join(', '));
+      return res.status(405).json({ error: isCandidates ? 'Use POST to add a stock.' : 'Use GET or PUT for rankings.' });
     }
-    if (req.method === 'PUT') {
-      if (!isSameOrigin(req)) return res.status(403).json({ error: 'Use this page to save rankings.' });
+    if (req.method !== 'GET') {
+      if (!isSameOrigin(req)) return res.status(403).json({ error: isCandidates ? 'Use this page to add stocks.' : 'Use this page to save rankings.' });
       if (req.get('content-type')?.split(';')[0].trim().toLowerCase() !== 'application/json') {
         return res.status(415).json({ error: 'Expected JSON.' });
       }
@@ -64,10 +82,11 @@ export function createBoardsProxy({ fetchImpl = globalThis.fetch, timeoutMs = 15
     next();
   });
 
-  router.put('/', express.raw({ type: () => true, limit: BODY_LIMIT, inflate: false }));
+  const parseBody = express.raw({ type: () => true, limit: BODY_LIMIT, inflate: false });
+  for (const method of methods.filter(method => method !== 'GET')) router[method.toLowerCase()]('/', parseBody);
 
   router.all('/', async (req, res) => {
-    if (req.method === 'PUT') {
+    if (req.method !== 'GET') {
       try {
         JSON.parse(req.body.toString('utf8'));
       } catch {
@@ -80,12 +99,12 @@ export function createBoardsProxy({ fetchImpl = globalThis.fetch, timeoutMs = 15
     try {
       // Deliberately construct fresh headers: no cookies, authorization, Origin,
       // forwarded host, or other incoming credentials go to the Site.
-      const response = await fetchImpl(BOARDS_URL, {
+      const response = await fetchImpl(url, {
         method: req.method,
-        headers: req.method === 'PUT'
+        headers: req.method !== 'GET'
           ? { Accept: 'application/json', 'Content-Type': 'application/json' }
           : { Accept: 'application/json' },
-        ...(req.method === 'PUT' ? { body: req.body } : {}),
+        ...(req.method !== 'GET' ? { body: req.body } : {}),
         signal: controller.signal,
         redirect: 'error',
         cache: 'no-store',
@@ -94,10 +113,10 @@ export function createBoardsProxy({ fetchImpl = globalThis.fetch, timeoutMs = 15
         throw new Error('Upstream did not return JSON');
       }
       const payload = await response.json();
-      if (!isValidPayload(payload, req.method, response.status)) throw new Error('Invalid upstream response');
+      if (!isValidPayload(payload, req.method, response.status, kind)) throw new Error('Invalid upstream response');
       return res.status(response.status).json(payload);
     } catch {
-      return res.status(503).json(unavailable);
+      return res.status(503).json(isCandidates ? { error: 'Adding stocks is temporarily unavailable. Please try again.' } : unavailable);
     } finally {
       clearTimeout(timer);
     }
@@ -105,9 +124,9 @@ export function createBoardsProxy({ fetchImpl = globalThis.fetch, timeoutMs = 15
 
   router.use((error, _req, res, _next) => {
     res.set('Cache-Control', 'no-store, max-age=0');
-    if (error.type === 'entity.too.large') return res.status(413).json({ error: 'These notes are too long.' });
+    if (error.type === 'entity.too.large') return res.status(413).json({ error: isCandidates ? 'This stock request is too large.' : 'These notes are too long.' });
     if (error.type === 'encoding.unsupported') return res.status(415).json({ error: 'Send uncompressed JSON.' });
-    return res.status(400).json({ error: 'Could not read the ranking request.' });
+    return res.status(400).json({ error: isCandidates ? 'Could not read the stock request.' : 'Could not read the ranking request.' });
   });
   return router;
 }

@@ -8,14 +8,15 @@ The owner requested Earnings Desk inside the existing 13F Render service with no
 
 - `/`: original 13F dashboard, `index.html`, `data.json`, existing financial-data APIs. Preserve its behavior and data.
 - `/earnings-tracker/`: Earnings Desk, statically built from `earnings/` into ignored `earnings/out/`.
-- `/earnings-tracker/api/boards`: fixed server-side proxy in `api/earnings-boards.js` to the existing public Site's saved rankings API.
+- `/earnings-tracker/api/boards`: fixed server-side proxy in `api/earnings-boards.js` to the existing public Site's saved rankings API; GET also returns shared custom candidates.
+- `/earnings-tracker/api/candidates`: POST registers a custom stock through the same Site. It is stored in D1, with no new Render disk.
 - `server.js`: Express serves both apps and existing `/healthz` in one process. Node 20 remains the configured Render runtime; there is no Next server or SQLite database in this process.
 
 **Keep the original Site active:** https://earnings-desk-richard-dan.ricnyc.chatgpt.site. It owns the persistent rankings in D1. The Render and original pages share the same data through this API. Do not delete the Site or replace shared storage with localStorage or ephemeral Render files. Never copy credentials from Codex; this public API requires no secrets. Proxy requests deliberately omit incoming credentials and Origin.
 
 ## Product behavior
 
-Richard and Dan independently rank up to five companies, enter a price target, target note and thesis, then explicitly save. Both profiles are publicly editable by anyone with the link as requested. Preserve conflict responses, versions, independent drafts and unsaved-change protections. Codex's read-only ranking is LRCX, MKSI, MTSI, Ibiden (4062), FORM. Compare shows all three.
+Richard and Dan independently rank up to five companies, enter a price target, target note and thesis, then explicitly save. Both profiles are publicly editable by anyone with the link as requested. Preserve conflict responses, versions, independent drafts and unsaved-change protections. Codex's read-only ranking is LRCX, MKSI, MTSI, Ibiden (4062), FORM. Compare shows all three. Codex is the first and initially selected tab. Richard and Dan open the full 121-entry watchlist plus shared custom stocks. Every watchlist entry is selectable, including ETFs (which do not have operating-company earnings). Add stock asks for ticker, optional name and currency; registration is shared immediately, while adding it to a personal draft still requires Save picks. New stocks have no invented prices, dates or EPS. Keep the five-pick limit and alternate-listing duplicate guard.
 
 UI: `earnings/app/earnings-desk.tsx`, `earnings/app/codex-picks.tsx`, `earnings/app/globals.css`. Data: `earnings/lib/candidates.json` and `earnings/lib/codex-picks.ts`. The browser's API URLs and generated assets must retain `/earnings-tracker` prefix.
 

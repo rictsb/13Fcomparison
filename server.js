@@ -10,14 +10,14 @@ import express from 'express';
 import edgarHandler from './api/edgar.js';
 import pricesHandler from './api/prices.js';
 import searchHandler from './api/search.js';
-import { createBoardsProxy } from './api/earnings-boards.js';
+import { createBoardsProxy, createCandidatesProxy } from './api/earnings-boards.js';
 import { fileURLToPath } from 'url';
 import { dirname, join, resolve } from 'path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
 
-export function createApp({ boardsProxyOptions, earningsDirectory = join(__dirname, 'earnings', 'out') } = {}) {
+export function createApp({ boardsProxyOptions, candidatesProxyOptions = boardsProxyOptions, earningsDirectory = join(__dirname, 'earnings', 'out') } = {}) {
   const app = express();
 
   // Preserve the existing 13F API paths and Render health check.
@@ -29,6 +29,7 @@ export function createApp({ boardsProxyOptions, earningsDirectory = join(__dirna
   // API comes before the exported earnings assets. Unknown API paths stay 404;
   // they must never fall back to a page or expose application source files.
   app.use('/earnings-tracker/api/boards', createBoardsProxy(boardsProxyOptions));
+  app.use('/earnings-tracker/api/candidates', createCandidatesProxy(candidatesProxyOptions));
   app.use('/earnings-tracker/api', (_req, res) => res.status(404).json({ error: 'API route not found.' }));
   app.use('/earnings-tracker', express.static(earningsDirectory, {
     setHeaders: (res, path) => {
