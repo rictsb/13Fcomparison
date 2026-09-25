@@ -4,6 +4,7 @@ import {useId} from 'react';
 import {ArrowDown,ArrowUp,Check,ChevronDown,ChevronRight,Pencil,Save,X} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import type {Candidate,Person,Pick,Quarter} from '@/lib/types';
+import {reportDateStatusLabel} from '@/lib/watchlist-sort';
 
 export type BetCardProps={
  person:Person;
@@ -73,7 +74,7 @@ export function BetCard({person,candidate:c,pick,index,total,expanded,editing,sa
     {!editing&&<Button type="button" size="sm" variant="outline" disabled={busy} onClick={onEdit} aria-label={`Edit ${symbol} bet`}><Pencil size={14}/>Edit</Button>}
     {editing&&<Button type="button" variant="ghost" size="sm" disabled={busy} onClick={onCancel}>{saved?'Cancel edit':'Cancel'}</Button>}
    </div>
-   <dl className="bet-financials"><div className="bet-report-date"><dt>Report date</dt><dd>{date(c.reportDate)}</dd>{c.reportDate&&<small>Estimated</small>}</div><Consensus label="Report EPS consensus" quarter={c.reportingQuarter}/><Consensus label="Following EPS consensus" quarter={c.followingQuarter}/></dl>
+   <dl className="bet-financials"><div className="bet-report-date"><dt>Report date</dt><dd>{c.isEtf?'No report':date(c.reportDate)}</dd><small>{reportDateStatusLabel(c)}</small></div><Consensus label="Report EPS consensus" quarter={c.reportingQuarter}/><Consensus label="Following EPS consensus" quarter={c.followingQuarter}/></dl>
    <button type="button" className="bet-research" onClick={onResearch}>Research & sources<ChevronRight size={14} aria-hidden="true"/></button>
   </div>
  </article>;

@@ -2,6 +2,7 @@
 import data from '@/lib/candidates.json';
 import {codexPicks,codexReviewDate} from '@/lib/codex-picks';
 import type {Candidate,Quarter} from '@/lib/types';
+import {reportDateStatusLabel} from '@/lib/watchlist-sort';
 import {ExternalLink,ChevronDown,ChevronRight} from 'lucide-react';
 
 const candidates=data as unknown as Candidate[];
@@ -29,7 +30,7 @@ export function CodexPicks({onOpen,compact=false}:Props){
    return <li key={pick.ticker}><details className="codex-pick-disclosure">
     <PickSummary candidate={c} rank={i+1} compact/>
     <div className="comparison-content codex-compact-details">
-     <div className="mini-financials">Report {report(c)} · Estimated<br/>{c.reportingQuarter?.shortPeriod}: {eps(c.reportingQuarter)} · {c.followingQuarter?.shortPeriod}: {eps(c.followingQuarter)}</div>
+     <div className="mini-financials">Report {report(c)} · {reportDateStatusLabel(c)}<br/>{c.reportingQuarter?.shortPeriod}: {eps(c.reportingQuarter)} · {c.followingQuarter?.shortPeriod}: {eps(c.followingQuarter)}</div>
      <h3>Why it goes up</h3><p className="user-note">{pick.summary}</p>
      <h3>The earnings trigger</h3><p className="user-note">{pick.catalyst}</p>
      <button className="bet-research codex-research-button" onClick={()=>onOpen(c)}>Research and sources<ChevronRight size={15}/></button>
@@ -54,7 +55,7 @@ export function CodexPicks({onOpen,compact=false}:Props){
     <div className="codex-pick-details">
      <h3>{pick.headline}</h3><p className="codex-why">{pick.why}</p>
      <div className="codex-metrics">
-      <button onClick={()=>onOpen(c)}><span>Report date</span><strong>{report(c)}</strong><small>{c.reportDateStatus.includes('conflict')?'Estimated · dates differ':'Estimated'}</small></button>
+      <button onClick={()=>onOpen(c)}><span>Report date</span><strong>{report(c)}</strong><small>{reportDateStatusLabel(c)}</small></button>
       {[c.reportingQuarter,c.followingQuarter].map((q,n)=><button key={n} onClick={()=>onOpen(c)}><span>{n===0?'Report EPS consensus':'Following EPS consensus'}</span><strong>{eps(q)}</strong><small>{q?.shortPeriod}</small><small className="inline-caution">{q?.caution}</small></button>)}
      </div>
      <div className="codex-case">
