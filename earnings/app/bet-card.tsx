@@ -49,7 +49,8 @@ export function BetCard({person,candidate:c,pick,index,total,expanded,editing,sa
   <div className="bet-actions">
    <span className={`bet-status ${status==='Saved'?'is-saved':''}`}>{status==='Saved'&&<Check size={12} aria-hidden="true"/>}{status}</span>
    <div className="bet-main-actions">
-    {editing?<Button type="button" size="sm" disabled={busy} onClick={onSave} aria-label={`Save ${symbol} bet`}><Save size={14}/>Save</Button>:<Button type="button" size="sm" variant="outline" disabled={busy} onClick={onEdit} aria-label={`Edit ${symbol} bet`}><Pencil size={14}/>Edit</Button>}
+    <Button type="button" size="sm" disabled={busy} onClick={onSave} aria-label={`Save ${symbol} bet`}><Save size={14}/>Save</Button>
+    {!editing&&<Button type="button" size="sm" variant="outline" disabled={busy} onClick={onEdit} aria-label={`Edit ${symbol} bet`}><Pencil size={14}/>Edit</Button>}
     <Button type="button" size="sm" variant="ghost" className="bet-remove" disabled={busy} onClick={onRemove} aria-label={`Remove ${symbol}`}><X size={14}/>Remove</Button>
    </div>
    <div className="rank-actions" aria-label={`Rank ${symbol}`}>
