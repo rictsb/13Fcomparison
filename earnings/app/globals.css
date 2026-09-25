@@ -64,3 +64,11 @@
  .candidates-table th:last-child{background:#f8fafd;z-index:2}
  .candidates-table tr[data-state=selected] td:last-child{background:#f0f5ff}
 }
+
+.candidates-table tr[data-earnings-soon=true],
+.candidates-table tr[data-earnings-soon=true] td,
+.candidates-table tr[data-earnings-soon=true] td:last-child,
+.mobile-candidate[data-earnings-soon=true]{background:#edf8ee}
+.candidates-table tr[data-earnings-soon=true]:hover,
+.candidates-table tr[data-earnings-soon=true]:hover td,
+.candidates-table tr[data-earnings-soon=true]:hover td:last-child{background:#e2f2e5}

@@ -22,6 +22,14 @@ export function reportDateStatusLabel(candidate:Pick<Candidate,'reportDate'|'rep
  return /conflict|differ/i.test(candidate.reportDateStatus)?'Estimated · dates differ':'Estimated';
 }
 
+export function isReportDueWithinWeek(candidate:Pick<Candidate,'reportDate'|'reportDateStatus'|'isEtf'>,today:string):boolean{
+ if(!validDate(today)||!validDate(candidate.reportDate))return false;
+ const status=reportDateStatusLabel(candidate);
+ if(status==='Reported'||status==='Not applicable')return false;
+ const daysUntil=(Date.parse(candidate.reportDate+'T00:00:00Z')-Date.parse(today+'T00:00:00Z'))/86400000;
+ return daysUntil>=0&&daysUntil<=7;
+}
+
 export function validPriceHistory(candidate:Pick<Candidate,'priceHistory'>){
  const points=new Map<string,{date:string;close:number}>();
  for(const point of candidate.priceHistory??[]){
