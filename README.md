@@ -73,8 +73,24 @@ fill in prices for any newly-imported holdings.
 
 That's it. Future pushes to `main` auto-deploy.
 
-Free-tier services spin down after ~15 min of inactivity (~3–5s cold start on
-the next visit). Bump to the **Standard** plan if you want it always warm.
+The existing `13f-tracker` is on the paid Starter plan. Earnings Desk shares
+that existing service without adding another service or disk. Preserve its
+plan and environment when publishing updates.
+
+## Earnings Desk
+
+The shared rankings page is mounted at `/earnings-tracker/`, with a link in
+the 13F dashboard navigation. Edit its React source under `earnings/`.
+Run `npm run build` to install locked frontend dependencies and produce
+`earnings/out/`; `npm run test:proxy` tests the integration with mocked storage.
+The existing Render service uses `npm install && npm run build` and `npm start`.
+
+Saved Richard/Dan rankings remain in the original public Site's D1 database:
+https://earnings-desk-richard-dan.ricnyc.chatgpt.site. The Express API proxies
+only the fixed rankings endpoint, so both pages share the same choices,
+versions and notes. **Do not delete the original Site.** This avoids an
+additional Render disk charge. No new database, service, disk or credentials
+are needed. See `CLAUDE.md` for the complete handoff and deployment boundaries.
 
 ## Deploy to Vercel (alternative)
 

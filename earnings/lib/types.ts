@@ -1,0 +1,7 @@
+export type Person = 'Richard' | 'Dan';
+export type Pick = {ticker:string;target:number|null;targetNote:string;thesis:string};
+export type Board = {person:Person;version:number;picks:Pick[];updatedAt:string|null};
+export type Boards = Record<Person,Board>;
+export type Quarter = {periodLabel:string;shortPeriod:string;periodEnd:string|null;eps:number|null;currency:string;basis:string;displayBasis:string;analystCount:number|null;asOf:string|null;sourceUrl:string;sourceName:string;status:string;caution:string;retrievedOn:string;postOctoberSplitEquivalent?:number};
+export type Candidate = {ticker:string;symbol:string;name:string;sector:string;group:string;currency:string;price:number|null;drawdown:number|null;priceAsOf:string|null;reportDate:string|null;reportDateStatus:string;reportDateNote?:string;reportDateAlternatives?:{date:string;status:string;sourceUrl:string}[];reportDateSourceUrl?:string;issuerCalendarUrl?:string;reportingQuarter:Quarter|null;followingQuarter:Quarter|null;thesis:string;risk:string;researchLabel:string;userFavorite:boolean;isEtf:boolean;economicGroup:string;priceSource:string;highBasis:string;sources:{title:string;url:string}[];consensusNotes:string[]};
+export const emptyBoards=():Boards=>({Richard:{person:'Richard',version:0,picks:[],updatedAt:null},Dan:{person:'Dan',version:0,picks:[],updatedAt:null}});

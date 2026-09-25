@@ -673,6 +673,7 @@ tbody td.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums
     <a data-route="#/conviction">Conviction</a>
     <a data-route="#/funds">Funds</a>
     <a data-route="#/compare">Compare</a>
+    <a href="/earnings-tracker/">Earnings Desk</a>
   </nav>
   <label class="min-pct-toggle" title="Hide positions smaller than this share of a fund's 13F">
     <span>Min %</span>
@@ -895,7 +896,7 @@ function buildTickerIndex() {
 // ============================================================================
 function render() {
   // Highlight active tab
-  document.querySelectorAll('nav.tabs a').forEach(a => {
+  document.querySelectorAll('nav.tabs a[data-route]').forEach(a => {
     const r = a.dataset.route.replace(/^#\//, '').split('/')[0];
     a.classList.toggle('active', r === STATE.route.name);
   });
@@ -2581,7 +2582,7 @@ function setupEvents() {
   inp.addEventListener('blur', () => setTimeout(() => out.classList.remove('show'), 150));
 
   // Nav clicks
-  document.querySelectorAll('nav.tabs a').forEach(a => a.addEventListener('click', e => {
+  document.querySelectorAll('nav.tabs a[data-route]').forEach(a => a.addEventListener('click', e => {
     e.preventDefault();
     location.hash = a.dataset.route;
   }));

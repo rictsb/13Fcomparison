@@ -6,9 +6,8 @@
 #   3. After the first deploy, open the service's Environment tab and set
 #      SEC_USER_AGENT to your own "Name email@domain.com" (SEC requires it).
 #
-# The "starter" plan is free and adequate; it spins down after ~15 min of
-# inactivity (~3-5s cold start when someone visits). Bump to "standard" if
-# you want it always warm.
+# This is the existing paid Starter service. The earnings page shares its
+# compute and the existing Site's D1 storage; it does not add a service or disk.
 
 services:
   - type: web
@@ -17,7 +16,7 @@ services:
     plan: starter
     region: oregon
     branch: main
-    buildCommand: npm install
+    buildCommand: npm install && npm run build
     startCommand: npm start
     healthCheckPath: /healthz
     autoDeploy: true
