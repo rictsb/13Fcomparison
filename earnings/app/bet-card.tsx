@@ -49,8 +49,6 @@ export function BetCard({person,candidate:c,pick,index,total,expanded,editing,sa
   <div className="bet-actions">
    <span className={`bet-status ${status==='Saved'?'is-saved':''}`}>{status==='Saved'&&<Check size={12} aria-hidden="true"/>}{status}</span>
    <div className="bet-main-actions">
-    <Button type="button" size="sm" disabled={busy} onClick={onSave} aria-label={`Save ${symbol} bet`}><Save size={14}/>Save</Button>
-    {!editing&&<Button type="button" size="sm" variant="outline" disabled={busy} onClick={onEdit} aria-label={`Edit ${symbol} bet`}><Pencil size={14}/>Edit</Button>}
     <Button type="button" size="sm" variant="ghost" className="bet-remove" disabled={busy} onClick={onRemove} aria-label={`Remove ${symbol}`}><X size={14}/>Remove</Button>
    </div>
    <div className="rank-actions" aria-label={`Rank ${symbol}`}>
@@ -64,13 +62,17 @@ export function BetCard({person,candidate:c,pick,index,total,expanded,editing,sa
     {c.ticker==='4062'&&<p className="inline-caution">Enter the target on the pre-October split basis, matching ¥22,405.</p>}
     <label className="note-label">Price-target note<textarea value={pick.targetNote} maxLength={2000} disabled={busy} rows={2} placeholder="Target timing, valuation or scenario…" aria-label={`${person} ${symbol} price-target note`} onChange={e=>onChange({targetNote:e.target.value})}/></label>
     <label className="note-label">Why it goes up<textarea value={pick.thesis} maxLength={6000} disabled={busy} rows={3} placeholder="What will the report reveal that changes expectations?" aria-label={`${person} ${symbol} reason to go up`} onChange={e=>onChange({thesis:e.target.value})}/></label>
-    <div className="bet-edit-footer"><Button type="button" variant="ghost" size="sm" disabled={busy} onClick={onCancel}>{saved?'Cancel edit':'Cancel'}</Button><span>Save this bet when ready.</span></div>
    </>:<div className="bet-saved-details">
     <h3>Price target <span>{c.currency}</span></h3><p className="bet-saved-target">{pick.target===null?'No target set.':money(pick.target,c.currency)}{upside!==null&&<small className={upside<0?'negative':''}>{upside>=0?'+':''}{(upside*100).toFixed(1)}% vs {c.priceAsOf?date(c.priceAsOf):'reference'} close</small>}</p>
     {c.ticker==='4062'&&<p className="inline-caution">Target uses the pre-October split basis, matching ¥22,405.</p>}
     <h3>Price-target note</h3><p className="user-note">{pick.targetNote||'No target note yet.'}</p>
     <h3>Why it goes up</h3><p className="user-note">{pick.thesis||'No thesis yet.'}</p>
    </div>}
+   <div className="bet-reason-actions">
+    <Button type="button" size="sm" disabled={busy} onClick={onSave} aria-label={`Save ${symbol} bet`}><Save size={14}/>Save</Button>
+    {!editing&&<Button type="button" size="sm" variant="outline" disabled={busy} onClick={onEdit} aria-label={`Edit ${symbol} bet`}><Pencil size={14}/>Edit</Button>}
+    {editing&&<Button type="button" variant="ghost" size="sm" disabled={busy} onClick={onCancel}>{saved?'Cancel edit':'Cancel'}</Button>}
+   </div>
    <dl className="bet-financials"><div className="bet-report-date"><dt>Report date</dt><dd>{date(c.reportDate)}</dd>{c.reportDate&&<small>Estimated</small>}</div><Consensus label="Report EPS consensus" quarter={c.reportingQuarter}/><Consensus label="Following EPS consensus" quarter={c.followingQuarter}/></dl>
    <button type="button" className="bet-research" onClick={onResearch}>Research & sources<ChevronRight size={14} aria-hidden="true"/></button>
   </div>
